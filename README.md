@@ -26,17 +26,17 @@ flowchart LR
 	Jetson[Jetson Orin Nano Super]
 
 	subgraph Ingress[ESP32 Input Tasks]
-		Serial1[Serial1 Task\nRuntime Metrics]
-		Serial2[Serial2 Task\nKernel / Debug Logs]
-		Sensor[Sensor Task\nTemperature / Humidity]
+		Serial1[Serial1 Task<br/>Runtime Metrics]
+		Serial2[Serial2 Task<br/>Kernel / Debug Logs]
+		Sensor[Sensor Task<br/>Temperature / Humidity]
 	end
 
 	Queue[(Message Queue / Bus)]
 
 	subgraph Control[Jetson Shield OS]
 		Controller[SystemController]
-		State[State Machine\n POWER_OFF / BOOTING_ON / RUNNING / SHUTTING_DOWN]
-		Alerts[Alert Logic\n Temperature / Humidity]
+		State[State Machine<br/>POWER_OFF / BOOTING_ON<br/>RUNNING / SHUTTING_DOWN]
+		Alerts[Alert Logic<br/>Temperature / Humidity]
 	end
 
 	subgraph Outputs[Peripheral Modules]
