@@ -35,8 +35,8 @@ flowchart LR
 
 	subgraph Control[Jetson Shield OS]
 		Controller[SystemController]
-		State[State Machine\nPOWER_OFF / BOOTING_ON / RUNNING / SHUTTING_DOWN]
-		Alerts[Alert Logic\nTemperature / Humidity]
+		State[State Machine\n POWER_OFF / BOOTING_ON / RUNNING / SHUTTING_DOWN]
+		Alerts[Alert Logic\n Temperature / Humidity]
 	end
 
 	subgraph Outputs[Peripheral Modules]
@@ -44,7 +44,6 @@ flowchart LR
 		TFT[TFT Touch Screen]
 		LED[LED Module]
 		Fan[Fan Module]
-		IO[Buttons / Switches]
 	end
 
 	Jetson --> Serial1
@@ -67,11 +66,11 @@ Additional assembly and design image galleries are collected in [docs/README.md]
 ## Demo Images
 
 <p align="center">
-  <img src="imgs/demo/0da851ecb16f3f31667e327.jpg" alt="Jetson Shield OS demo 1" width="19%" />
+  <img src="imgs/demo/b494775191d21f8c46c3.jpg" alt="Jetson Shield OS demo 5" width="19%" />
   <img src="imgs/demo/26ecefb00f33816dd822330.jpg" alt="Jetson Shield OS demo 2" width="19%" />
   <img src="imgs/demo/054c0a0bea8864d63d99329.jpg" alt="Jetson Shield OS demo 3" width="19%" />
   <img src="imgs/demo/51312077c0f44eaa17e5328.jpg" alt="Jetson Shield OS demo 4" width="19%" />
-  <img src="imgs/demo/b494775191d21f8c46c3.jpg" alt="Jetson Shield OS demo 5" width="19%" />
+  <img src="imgs/demo/0da851ecb16f3f31667e327.jpg" alt="Jetson Shield OS demo 1" width="19%" />
 </p>
 
 ## Video
