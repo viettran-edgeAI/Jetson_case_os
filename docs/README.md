@@ -4,29 +4,27 @@ This page collects the design and assembly images for quick browsing on GitHub.
 
 ## Design Diagrams
 
-<details>
-<summary><b>Frame 1: Design Diagrams 1-6</b></summary>
+**Frame 1: Design Diagrams 1-6**
 
-1. ![Design diagram 0](../imgs/diagrams/box_0.jpg)
-2. ![Design diagram 1](../imgs/diagrams/box_1.jpg)
-3. ![Design diagram 2](../imgs/diagrams/box_2.jpg)
-4. ![Design diagram 3](../imgs/diagrams/box_3.jpg)
-5. ![Design diagram 4](../imgs/diagrams/box_4.jpg)
-6. ![Design diagram 5](../imgs/diagrams/box_5.jpg)
+<p align="center">
+  <img src="../imgs/diagrams/box_0.jpg" alt="Design diagram 0" width="15%" />
+  <img src="../imgs/diagrams/box_1.jpg" alt="Design diagram 1" width="15%" />
+  <img src="../imgs/diagrams/box_2.jpg" alt="Design diagram 2" width="15%" />
+  <img src="../imgs/diagrams/box_3.jpg" alt="Design diagram 3" width="15%" />
+  <img src="../imgs/diagrams/box_4.jpg" alt="Design diagram 4" width="15%" />
+  <img src="../imgs/diagrams/box_5.jpg" alt="Design diagram 5" width="15%" />
+</p>
 
-</details>
+**Frame 2: Design Diagrams 7-12**
 
-<details>
-<summary><b>Frame 2: Design Diagrams 7-12</b></summary>
-
-7. ![Design diagram 6](../imgs/diagrams/box_6.jpg)
-8. ![Design diagram 7](../imgs/diagrams/box_7.jpg)
-9. ![Design diagram 8](../imgs/diagrams/box_8.jpg)
-10. ![Design diagram 9](../imgs/diagrams/box_9.jpg)
-11. ![Design diagram 10](../imgs/diagrams/box_10.jpg)
-12. ![Design diagram 11](../imgs/diagrams/box_11.jpg)
-
-</details>
+<p align="center">
+  <img src="../imgs/diagrams/box_6.jpg" alt="Design diagram 6" width="15%" />
+  <img src="../imgs/diagrams/box_7.jpg" alt="Design diagram 7" width="15%" />
+  <img src="../imgs/diagrams/box_8.jpg" alt="Design diagram 8" width="15%" />
+  <img src="../imgs/diagrams/box_9.jpg" alt="Design diagram 9" width="15%" />
+  <img src="../imgs/diagrams/box_10.jpg" alt="Design diagram 10" width="15%" />
+  <img src="../imgs/diagrams/box_11.jpg" alt="Design diagram 11" width="15%" />
+</p>
 
 ## Assembly Process
 
@@ -34,79 +32,71 @@ Overview:
 
 ![Assembly overview](../imgs/assembly%20process/start.jpg)
 
-<details>
-<summary><b>Frame 1: Assembly Steps 1-4</b></summary>
+**Frame 1: Assembly Steps 1-4**
 
-1. ![Assembly step 0](../imgs/assembly%20process/img_0.jpg)
-2. ![Assembly step 1](../imgs/assembly%20process/img_1.jpg)
-3. ![Assembly step 2](../imgs/assembly%20process/img_2.jpg)
-4. ![Assembly step 3](../imgs/assembly%20process/img_3.jpg)
+<p align="center">
+  <img src="../imgs/assembly%20process/img_0.jpg" alt="Assembly step 0" width="23%" />
+  <img src="../imgs/assembly%20process/img_1.jpg" alt="Assembly step 1" width="23%" />
+  <img src="../imgs/assembly%20process/img_2.jpg" alt="Assembly step 2" width="23%" />
+  <img src="../imgs/assembly%20process/img_3.jpg" alt="Assembly step 3" width="23%" />
+</p>
 
-</details>
+**Frame 2: Assembly Steps 5-8**
 
-<details>
-<summary><b>Frame 2: Assembly Steps 5-8</b></summary>
+<p align="center">
+  <img src="../imgs/assembly%20process/img_4.jpg" alt="Assembly step 4" width="23%" />
+  <img src="../imgs/assembly%20process/img_5.jpg" alt="Assembly step 5" width="23%" />
+  <img src="../imgs/assembly%20process/img_6.jpg" alt="Assembly step 6" width="23%" />
+  <img src="../imgs/assembly%20process/img_7.jpg" alt="Assembly step 7" width="23%" />
+</p>
 
-5. ![Assembly step 4](../imgs/assembly%20process/img_4.jpg)
-6. ![Assembly step 5](../imgs/assembly%20process/img_5.jpg)
-7. ![Assembly step 6](../imgs/assembly%20process/img_6.jpg)
-8. ![Assembly step 7](../imgs/assembly%20process/img_7.jpg)
+**Frame 3: Assembly Steps 9-12**
 
-</details>
+<p align="center">
+  <img src="../imgs/assembly%20process/img_8.jpg" alt="Assembly step 8" width="23%" />
+  <img src="../imgs/assembly%20process/img_9.jpg" alt="Assembly step 9" width="23%" />
+  <img src="../imgs/assembly%20process/img_10.jpg" alt="Assembly step 10" width="23%" />
+  <img src="../imgs/assembly%20process/img_11.jpg" alt="Assembly step 11" width="23%" />
+</p>
 
-<details>
-<summary><b>Frame 3: Assembly Steps 9-12</b></summary>
+**Frame 4: Assembly Steps 13-16**
 
-9. ![Assembly step 8](../imgs/assembly%20process/img_8.jpg)
-10. ![Assembly step 9](../imgs/assembly%20process/img_9.jpg)
-11. ![Assembly step 10](../imgs/assembly%20process/img_10.jpg)
-12. ![Assembly step 11](../imgs/assembly%20process/img_11.jpg)
+<p align="center">
+  <img src="../imgs/assembly%20process/img_12.jpg" alt="Assembly step 12" width="23%" />
+  <img src="../imgs/assembly%20process/img_13.jpg" alt="Assembly step 13" width="23%" />
+  <img src="../imgs/assembly%20process/img_14.jpg" alt="Assembly step 14" width="23%" />
+  <img src="../imgs/assembly%20process/img_15.jpg" alt="Assembly step 15" width="23%" />
+</p>
 
-</details>
+**Frame 5: Assembly Steps 17-20**
 
-<details>
-<summary><b>Frame 4: Assembly Steps 13-16</b></summary>
+<p align="center">
+  <img src="../imgs/assembly%20process/img_16.jpg" alt="Assembly step 16" width="23%" />
+  <img src="../imgs/assembly%20process/img_17.jpg" alt="Assembly step 17" width="23%" />
+  <img src="../imgs/assembly%20process/img_18.jpg" alt="Assembly step 18" width="23%" />
+  <img src="../imgs/assembly%20process/img_19.jpg" alt="Assembly step 19" width="23%" />
+</p>
 
-13. ![Assembly step 12](../imgs/assembly%20process/img_12.jpg)
-14. ![Assembly step 13](../imgs/assembly%20process/img_13.jpg)
-15. ![Assembly step 14](../imgs/assembly%20process/img_14.jpg)
-16. ![Assembly step 15](../imgs/assembly%20process/img_15.jpg)
+**Frame 6: Assembly Steps 21-24**
 
-</details>
+<p align="center">
+  <img src="../imgs/assembly%20process/img_20.jpg" alt="Assembly step 20" width="23%" />
+  <img src="../imgs/assembly%20process/img_21.jpg" alt="Assembly step 21" width="23%" />
+  <img src="../imgs/assembly%20process/img_22.jpg" alt="Assembly step 22" width="23%" />
+  <img src="../imgs/assembly%20process/img_23.jpg" alt="Assembly step 23" width="23%" />
+</p>
 
-<details>
-<summary><b>Frame 5: Assembly Steps 17-20</b></summary>
+**Frame 7: Assembly Steps 25-28**
 
-17. ![Assembly step 16](../imgs/assembly%20process/img_16.jpg)
-18. ![Assembly step 17](../imgs/assembly%20process/img_17.jpg)
-19. ![Assembly step 18](../imgs/assembly%20process/img_18.jpg)
-20. ![Assembly step 19](../imgs/assembly%20process/img_19.jpg)
+<p align="center">
+  <img src="../imgs/assembly%20process/img_24.jpg" alt="Assembly step 24" width="23%" />
+  <img src="../imgs/assembly%20process/img_25.jpg" alt="Assembly step 25" width="23%" />
+  <img src="../imgs/assembly%20process/img_26.jpg" alt="Assembly step 26" width="23%" />
+  <img src="../imgs/assembly%20process/img_27.jpg" alt="Assembly step 27" width="23%" />
+</p>
 
-</details>
+**Frame 8: Assembly Step 29**
 
-<details>
-<summary><b>Frame 6: Assembly Steps 21-24</b></summary>
-
-21. ![Assembly step 20](../imgs/assembly%20process/img_20.jpg)
-22. ![Assembly step 21](../imgs/assembly%20process/img_21.jpg)
-23. ![Assembly step 22](../imgs/assembly%20process/img_22.jpg)
-24. ![Assembly step 23](../imgs/assembly%20process/img_23.jpg)
-
-</details>
-
-<details>
-<summary><b>Frame 7: Assembly Steps 25-28</b></summary>
-
-25. ![Assembly step 24](../imgs/assembly%20process/img_24.jpg)
-26. ![Assembly step 25](../imgs/assembly%20process/img_25.jpg)
-27. ![Assembly step 26](../imgs/assembly%20process/img_26.jpg)
-28. ![Assembly step 27](../imgs/assembly%20process/img_27.jpg)
-
-</details>
-
-<details>
-<summary><b>Frame 8: Assembly Step 29</b></summary>
-
-29. ![Assembly step 28](../imgs/assembly%20process/img_28.jpg)
-
-</details>
+<p align="center">
+  <img src="../imgs/assembly%20process/img_28.jpg" alt="Assembly step 28" width="23%" />
+</p>
