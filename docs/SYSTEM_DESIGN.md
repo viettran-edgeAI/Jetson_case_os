@@ -1,8 +1,8 @@
 # Jetson Shield OS - System Design Specification
 
 **Document ID:** JSOS-SDD-001  
-**Version:** 1.1  
-**Date:** 2026-03-09  
+**Version:** 1.2  
+**Date:** 2026-03-15  
 **Target Platform:** ESP32 Dev Module (Dual Core 240 MHz, 256 KB RAM, 2 MB Flash)
 
 ## 1. Purpose and Scope
@@ -59,8 +59,11 @@ The firmware follows a **module + controller + message bus** pattern:
 - `TaskSensor` (humidity and ambient telemetry).
 - Optional module service tasks (LED, LCD refresh) if needed for smooth rendering.
 
-### 3.3 Design Principle
-**All state transitions and alert transitions must happen only in `SystemController`.**
+### 3.3 Design Principles
+- All state transitions and alert transitions must happen only in `SystemController`.
+- LCD_2 rendering must be state-scoped: transition log console in `BOOTING_ON`/`SHUTTING_DOWN`, dashboard in `RUNNING`, display-off in `POWER_OFF`.
+- User control values exposed by LCD_2 (for example LED brightness) must have a single controller-owned source of truth and must not drift due to quantized feedback loops.
+
 Producer tasks are data sources, not policy owners.
 
 ## 4. State Machine Specification
@@ -173,7 +176,21 @@ Each module must provide at minimum:
   - final pause before switching to the running idle logo.
 
 ### 7.2 LCD_2 Standard
-- Enabled only in `RUNNING`.
+- Operating mode by state:
+  - `BOOTING_ON`: show Serial2 kernel/debug log console.
+  - `SHUTTING_DOWN`: show Serial2 kernel/debug log console.
+  - `RUNNING`: show dashboard and touch controls.
+  - `POWER_OFF`: LCD_2 shall remain active on a black background and show a compact idle screen that clearly indicates Jetson is off.
+- `POWER_OFF` idle screen shall include:
+  - a black background with a concise `Jetson is off` style status message
+  - a touch button below the message that opens a compact games menu
+  - optional enclosure telemetry if available, without cluttering the idle screen
+- `POWER_OFF` games menu shall provide at least lightweight touch-controlled mini-games such as:
+  - an endless runner in the style of the offline Chrome dinosaur game
+  - a simple bouncing ball or paddle-ball game
+- `POWER_OFF` game rendering shall use a full-screen 1-bit sprite with TFT DMA-backed pushes to minimize RAM use and keep animation smooth on ESP32.
+- `POWER_OFF` game loop timing shall be bounded and non-blocking so controller responsiveness and state transition detection are preserved.
+- Transition log console (`BOOTING_ON` and `SHUTTING_DOWN`) shall use a full-screen 1-bit sprite (`320x240`) and push full frames for smooth scrolling with bounded RAM usage.
 - Must render:
   - CPU usage graph
   - GPU usage graph
@@ -189,6 +206,7 @@ Each module must provide at minimum:
 - LCD_2 shall provide one user control only: a permanent vertical LED brightness slider on the far right edge of the dashboard.
 - Fan control shall remain automatic and shall not be user-adjustable from LCD_2.
 - LCD_2 touch handling shall avoid mode toggles for basic operation; LED brightness control is always visible during `RUNNING`.
+- LED brightness control shall keep the user-selected percentage stable after touch release; controller synchronization must not quantize the requested value via repeated percent-to-PWM-to-percent round-trips.
 - Rotation default is landscape (`setRotation(3)` as baseline config, matching `Jetson_graph/`).
 
 ### 7.2.1 LCD_2 Touch Calibration Standard
@@ -269,7 +287,7 @@ A firmware baseline is deployment-ready when:
 1. All modules initialize successfully on boot.
 2. State transitions pass scripted UART replay tests.
 3. Alert rules trigger expected LED/fan behavior.
-4. LCD_2 renders valid stats only in `RUNNING`.
+4. LCD_2 behavior is state-correct: display-off in `POWER_OFF`, Serial2 log console in `BOOTING_ON`/`SHUTTING_DOWN`, and valid stats dashboard in `RUNNING`.
 5. No queue overflow in nominal telemetry load.
 6. 30-minute stability run completes without crash/reset.
 

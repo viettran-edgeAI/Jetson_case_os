@@ -2,7 +2,7 @@
 
 ## Project Introduction
 
-Jetson Shield OS is a transparent enclosure project for the Jetson Orin Nano Super. An ESP32 acts as a companion controller connected to the Jetson through two serial ports: one channel carries runtime parameters, and the second channel captures kernel and debugging messages. The ESP32 then presents system status, alerts, and boot or shutdown activity across local displays, lighting, and cooling hardware.
+Jetson Shield OS is a transparent enclosure project for the Jetson Orin Nano Super. An ESP32 acts as a companion controller connected to the Jetson through two serial ports: one channel carries runtime parameters and the LCD_2 terminal bridge, and the second channel captures kernel and debugging messages. The ESP32 then presents system status, alerts, terminal sessions, and boot or shutdown activity across local displays, lighting, and cooling hardware.
 
 ## Hardware
 
@@ -19,14 +19,13 @@ Jetson Shield OS is a transparent enclosure project for the Jetson Orin Nano Sup
 
 ## Program
 
-The firmware follows the architecture defined in [docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md): producer tasks collect Jetson metrics, kernel logs, and local sensor data; a central controller consumes the bus queue; and hardware modules render the current system state.
-
 ```mermaid
 flowchart LR
 	Jetson[Jetson Orin Nano Super]
 
 	subgraph Ingress[ESP32 Input Tasks]
 		Serial1[Serial1 Task<br/>Runtime Metrics]
+		Terminal[Serial1 Terminal Frames<br/>tmux Mirror]
 		Serial2[Serial2 Task<br/>Kernel / Debug Logs]
 		Sensor[Sensor Task<br/>Temperature / Humidity]
 	end
@@ -47,8 +46,10 @@ flowchart LR
 	end
 
 	Jetson --> Serial1
+	Jetson --> Terminal
 	Jetson --> Serial2
 	Serial1 --> Queue
+	Terminal --> Queue
 	Serial2 --> Queue
 	Sensor --> Queue
 	Queue --> Controller

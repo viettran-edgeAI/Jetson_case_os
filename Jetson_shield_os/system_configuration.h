@@ -69,6 +69,7 @@ static constexpr const char* kTokenPowerOff = "ivc channel driver missing";
 // ---------------------------- Message Queue ----------------------------
 static constexpr size_t kMessageQueueLength = 24;
 static constexpr uint32_t kControllerTickMs = 50;
+static constexpr uint32_t kControllerPowerOffTickMs = 16;
 
 // ---------------------------- Fan Policy -------------------------------
 static constexpr int kFanPwmPin = 26;
@@ -85,7 +86,7 @@ static constexpr uint8_t kFanDutyMaxPercent = 100;
 // ---------------------------- LED Policy -------------------------------
 static constexpr uint8_t kLedPin = 14;
 static constexpr uint16_t kLedCount = 8;
-static constexpr uint8_t kLedBrightness = 200;
+static constexpr uint8_t kLedBrightness = 51;
 
 static constexpr uint32_t kLedChangeIntervalMs = 4000;
 static constexpr uint32_t kLedTransitionTimeMs = 1000;
@@ -134,6 +135,10 @@ static constexpr uint16_t kTaskStackSerial1 = 3072;
 static constexpr uint16_t kTaskStackSensor = 2048;
 static constexpr uint16_t kTaskStackLed = 2048;
 
+// Dedicated LCD2 rendering task (Core 0, highest priority for smooth 60fps game loop)
+static constexpr uint8_t  kTaskPriorityLcd2 = 5;
+static constexpr uint16_t kTaskStackLcd2    = 6144;
+
 } // namespace jetson_cfg
 
 // --------------------- Legacy compatibility aliases --------------------
@@ -167,4 +172,3 @@ static constexpr uint16_t kTaskStackLed = 2048;
 #define LCD2_WIDTH jetson_cfg::kLcd2Width
 #define LCD2_HEIGHT jetson_cfg::kLcd2Height
 #define SCREEN_ROTATION jetson_cfg::kLcd2Rotation
-

@@ -1,0 +1,5 @@
+static const unsigned char PROGMEM star_0[] = {
+  0xee, 0xee, 0xc6, 0x00, 0xc6, 0xee, 0xee
+};
+
+// Width: 7, Height: 7, Bytes per row: 1

@@ -4,6 +4,12 @@
 #include <LittleFS.h>
 
 #include <stdio.h>
+#include <string.h>
+
+#ifdef SMOOTH_FONT
+#include "NotoSansBold15.h"
+#include "NotoSansBold36.h"
+#endif
 
 namespace {
 
@@ -31,8 +37,183 @@ constexpr int16_t kGraphAxisLabelWidth = 20;
 constexpr int16_t kGraphInfoWidth = 42;
 constexpr uint32_t kTouchScanPeriodMs = 20;
 constexpr uint32_t kTouchUiRefreshPeriodMs = 33;
+constexpr uint32_t kBootLogRefreshPeriodMs = 40;
 constexpr uint32_t kTouchCalibrationMagic = 0x4A534F53UL;
 constexpr uint8_t kTouchCalibrationVersion = 1;
+constexpr uint8_t kBootSpriteInk = 1;
+constexpr uint8_t kBootSpritePaper = 0;
+constexpr int16_t kBootHeaderHeight = 16;
+constexpr int16_t kBootTextInsetX = 4;
+constexpr int16_t kBootTextInsetY = 3;
+constexpr int16_t kBootLineHeight = 10;
+
+// ---- POWER_OFF screen and game constants --------------------------------
+// 1-bit sprite colours
+constexpr uint8_t kGameSpriteInk   = 1;
+constexpr uint8_t kGameSpritePaper = 0;
+
+// Frame timing
+constexpr uint32_t kPowerOffRefreshMs    = 30000UL; // idle screen env-data refresh
+constexpr uint32_t kGameFramePeriodMs    = 16U;     // 60 Hz target when POWER_OFF is active
+
+// "GAMES" button geometry (screen-coordinate-independent fractions are
+// computed at runtime using _width/_height)
+constexpr int16_t kGameBtnH       = 34;
+constexpr int16_t kGameBtnW       = 108;
+constexpr int16_t kGameBtnMarginB = 14;   // px from screen bottom
+constexpr int16_t kMenuItemH      = 36;
+constexpr uint8_t kMenuItemCount  = 2;
+constexpr int16_t kExitBtnW       = 34;
+constexpr int16_t kExitBtnH       = 22;
+constexpr int16_t kExitBtnOffsetX = 36;
+constexpr int16_t kExitBtnY       = 2;
+constexpr int16_t kGameOverMenuW  = 168;
+constexpr int16_t kGameOverMenuH  = 74;
+constexpr int16_t kGameOverBtnW   = 72;
+constexpr int16_t kGameOverBtnH   = 20;
+constexpr int16_t kGameOverBtnPad = 8;
+
+void drawPowerOffButton(TFT_eSPI& tft,
+                        int16_t x,
+                        int16_t y,
+                        int16_t w,
+                        int16_t h,
+                        bool active,
+                        const char* line1,
+                        const char* line2) {
+    const uint16_t borderColor = active ? TFT_LIGHTGREY : TFT_DARKGREY;
+    const uint16_t bgColor = TFT_BLACK;
+    const int16_t radius = 6;
+    const int16_t cx = static_cast<int16_t>(x + (w / 2));
+    const int16_t cy = static_cast<int16_t>(y + (h / 2));
+
+    tft.fillRoundRect(x, y, w, h, radius, bgColor);
+    tft.drawRoundRect(x, y, w, h, radius, borderColor);
+    if (active) {
+        tft.drawRoundRect(static_cast<int16_t>(x + 1),
+                          static_cast<int16_t>(y + 1),
+                          static_cast<int16_t>(w - 2),
+                          static_cast<int16_t>(h - 2),
+                          static_cast<int16_t>(radius - 1),
+                          borderColor);
+    }
+
+    tft.setTextColor(TFT_LIGHTGREY, bgColor);
+    tft.setTextDatum(MC_DATUM);
+#ifdef SMOOTH_FONT
+    tft.loadFont(NotoSansBold15);
+    if (line2 == nullptr || line2[0] == '\0') {
+        tft.drawString(line1, cx, cy);
+    } else {
+        tft.drawString(line1, cx, static_cast<int16_t>(cy - 8));
+        tft.drawString(line2, cx, static_cast<int16_t>(cy + 8));
+    }
+    tft.unloadFont();
+#else
+    if (line2 == nullptr || line2[0] == '\0') {
+        tft.drawString(line1, cx, cy, 2);
+    } else {
+        tft.drawString(line1, cx, static_cast<int16_t>(cy - 6), 1);
+        tft.drawString(line2, cx, static_cast<int16_t>(cy + 6), 1);
+    }
+#endif
+    tft.setTextDatum(TL_DATUM);
+}
+
+void drawExitButtonOnGameSprite(TFT_eSprite& sprite, uint16_t width) {
+    const int16_t x = static_cast<int16_t>(width - kExitBtnOffsetX);
+    const int16_t y = kExitBtnY;
+    const int16_t w = kExitBtnW;
+    const int16_t h = kExitBtnH;
+    const int16_t cx = static_cast<int16_t>(x + (w / 2));
+    const int16_t cy = static_cast<int16_t>(y + (h / 2));
+
+    sprite.fillRect(x, y, w, h, kGameSpritePaper);
+    sprite.drawRect(x, y, w, h, kGameSpriteInk);
+    sprite.setTextColor(kGameSpriteInk, kGameSpritePaper);
+    sprite.setTextDatum(MC_DATUM);
+    sprite.drawString("EXIT", cx, cy, 1);
+    sprite.setTextDatum(TL_DATUM);
+}
+
+struct GameOverMenuLayout {
+    int16_t menuX;
+    int16_t menuY;
+    int16_t menuW;
+    int16_t menuH;
+    int16_t restartX;
+    int16_t restartY;
+    int16_t exitX;
+    int16_t exitY;
+};
+
+GameOverMenuLayout makeGameOverMenuLayout(uint16_t width, uint16_t height) {
+    GameOverMenuLayout layout = {};
+    layout.menuW = min<int16_t>(kGameOverMenuW, static_cast<int16_t>(width - 12));
+    layout.menuH = kGameOverMenuH;
+    layout.menuX = static_cast<int16_t>((static_cast<int16_t>(width) - layout.menuW) / 2);
+    layout.menuY = static_cast<int16_t>((static_cast<int16_t>(height) - layout.menuH) / 2);
+    layout.restartY = static_cast<int16_t>(layout.menuY + layout.menuH - kGameOverBtnH - 8);
+    layout.exitY = layout.restartY;
+    layout.restartX = static_cast<int16_t>(layout.menuX + kGameOverBtnPad);
+    layout.exitX = static_cast<int16_t>(layout.menuX + layout.menuW - kGameOverBtnPad - kGameOverBtnW);
+    return layout;
+}
+
+bool pointInBox(int16_t x, int16_t y, int16_t boxX, int16_t boxY, int16_t boxW, int16_t boxH) {
+    return (x >= boxX) && (x < static_cast<int16_t>(boxX + boxW)) &&
+           (y >= boxY) && (y < static_cast<int16_t>(boxY + boxH));
+}
+
+void drawMenuButtonOnSprite(TFT_eSprite& sprite,
+                            int16_t x,
+                            int16_t y,
+                            int16_t w,
+                            int16_t h,
+                            const char* label) {
+    sprite.fillRect(x, y, w, h, kGameSpritePaper);
+    sprite.drawRect(x, y, w, h, kGameSpriteInk);
+    sprite.setTextDatum(MC_DATUM);
+    sprite.drawString(label,
+                      static_cast<int16_t>(x + (w / 2)),
+                      static_cast<int16_t>(y + (h / 2)),
+                      1);
+    sprite.setTextDatum(TL_DATUM);
+}
+
+void drawGameOverMenuOnSprite(TFT_eSprite& sprite, uint16_t width, uint16_t height, uint32_t score) {
+    const GameOverMenuLayout layout = makeGameOverMenuLayout(width, height);
+
+    sprite.fillRect(layout.menuX, layout.menuY, layout.menuW, layout.menuH, kGameSpritePaper);
+    sprite.drawRect(layout.menuX, layout.menuY, layout.menuW, layout.menuH, kGameSpriteInk);
+
+    sprite.setTextDatum(TC_DATUM);
+    sprite.drawString("GAME OVER",
+                      static_cast<int16_t>(layout.menuX + (layout.menuW / 2)),
+                      static_cast<int16_t>(layout.menuY + 8),
+                      2);
+
+    char scoreBuf[24];
+    snprintf(scoreBuf, sizeof(scoreBuf), "SCORE %lu", static_cast<unsigned long>(score));
+    sprite.drawString(scoreBuf,
+                      static_cast<int16_t>(layout.menuX + (layout.menuW / 2)),
+                      static_cast<int16_t>(layout.menuY + 28),
+                      1);
+
+    drawMenuButtonOnSprite(sprite,
+                           layout.restartX,
+                           layout.restartY,
+                           kGameOverBtnW,
+                           kGameOverBtnH,
+                           "RESTART");
+    drawMenuButtonOnSprite(sprite,
+                           layout.exitX,
+                           layout.exitY,
+                           kGameOverBtnW,
+                           kGameOverBtnH,
+                           "EXIT");
+    sprite.setTextDatum(TL_DATUM);
+}
 
 struct TouchCalibrationBlob {
     uint32_t magic;
@@ -71,6 +252,38 @@ bool isPowerValid(int32_t value) {
 
 bool isHumidityValid(float value) {
     return value >= 0.0f && value <= 100.0f;
+}
+
+void setDisplayEnabled(TFT_eSPI& tft, bool enabled) {
+#ifdef TFT_DISPON
+#ifdef TFT_DISPOFF
+    tft.startWrite();
+    tft.writecommand(enabled ? TFT_DISPON : TFT_DISPOFF);
+    tft.endWrite();
+#else
+    (void)enabled;
+#endif
+#else
+    (void)tft;
+    (void)enabled;
+#endif
+}
+
+const char* stripKernelPrefix(const char* line) {
+    if (line == nullptr) {
+        return "";
+    }
+
+    if (line[0] != '[') {
+        return line;
+    }
+
+    const char* closing = strstr(line, "] ");
+    if (closing == nullptr) {
+        return line;
+    }
+
+    return closing + 2;
 }
 
 const char* stateName(jetson_cfg::SystemState state) {
@@ -210,31 +423,54 @@ LCD2Dashboard::LCD2Dashboard()
       _dirty(true),
       _hasMetrics(false),
       _alertMask(0),
-            _boxTemp(-1.0f),
-            _boxHumidity(-1.0f),
-            _fanPercent(0),
-            _ledBrightnessPercent(map(jetson_cfg::kLedBrightness, 0, 255, 0, 100)),
-            _touchReady(false),
-            _touchDown(false),
-            _lastTouchScanMs(0),
-            _touchSamplesY{0, 0, 0},
-            _touchSampleCount(0),
-            _activeControl(ActiveControl::NONE),
+    _boxTemp(-1.0f),
+    _boxHumidity(-1.0f),
+    _fanPercent(0),
+    _ledBrightnessPercent(map(jetson_cfg::kLedBrightness, 0, 255, 0, 100)),
+    _touchReady(false),
+    _touchDown(false),
+    _lastTouchScanMs(0),
+    _touchSamplesY{0, 0, 0},
+    _touchSampleCount(0),
+    _bootLayoutDrawn(false),
+    _lastBootRefreshMs(0),
+    _bootLogHead(0),
+    _bootLogCount(0),
+    _activeControl(ActiveControl::NONE),
       _lastRefreshMs(0),
-            _latest{-1, -1, -1, -1.0f, -1.0f, -1},
+    _latest{-1, -1, -1, -1.0f, -1.0f, -1},
       _historyWriteIndex(0),
       _historyCount(0),
-            _tft(DEFAULT_WIDTH, DEFAULT_HEIGHT),
-      _cpuSprite(&_tft),
-            _gpuSprite(&_tft),
+    _tft(DEFAULT_WIDTH, DEFAULT_HEIGHT),
+    _btnGames(&_tft),
+    _btnDino(&_tft),
+    _btnBall(&_tft),
+    _btnExit(&_tft),
+    _cpuSprite(&_tft),
+    _gpuSprite(&_tft),
       _ramSprite(&_tft),
       _panelSprite(&_tft),
-      _spritesReady(false) {
+    _bootLogSprite(&_tft),
+    _spritesReady(false),
+    _bootSpriteReady(false),
+    _powerOffMode(PowerOffMode::IDLE),
+    _powerOffLastFrameMs(0),
+    _idleDrawn(false),
+    _dinoGame{},
+    _ballGame{},
+    _gameSprite(&_tft),
+    _gameSpriteReady(false),
+    _gamePrevTouched(false),
+    _gameTouched(false),
+    _gameTouchX(0),
+    _gameTouchY(0) {
     for (uint16_t i = 0; i < HISTORY_POINTS; ++i) {
         _cpuHistory[i] = -1;
-                _gpuHistory[i] = -1;
+      _gpuHistory[i] = -1;
         _ramHistory[i] = -1;
     }
+
+    clearBootLog();
 }
 
 int16_t LCD2Dashboard::clampUsage(int16_t value) {
@@ -359,6 +595,30 @@ void LCD2Dashboard::deleteSprites() {
     _spritesReady = false;
 }
 
+bool LCD2Dashboard::initBootLogSprite() {
+    deleteBootLogSprite();
+
+    _bootLogSprite.setColorDepth(1);
+    if (_bootLogSprite.createSprite(_width, _height) == nullptr) {
+        _bootSpriteReady = false;
+        return false;
+    }
+
+    _bootLogSprite.setTextColor(kBootSpriteInk, kBootSpritePaper);
+    _bootLogSprite.setTextFont(1);
+    _bootLogSprite.setTextDatum(TL_DATUM);
+    _bootLogSprite.setBitmapColor(kTextColor, kBackgroundColor);
+    _bootSpriteReady = true;
+    return true;
+}
+
+void LCD2Dashboard::deleteBootLogSprite() {
+    if (_bootLogSprite.created()) {
+        _bootLogSprite.deleteSprite();
+    }
+    _bootSpriteReady = false;
+}
+
 bool LCD2Dashboard::initTouchCalibration() {
     uint16_t calData[5] = {0};
     bool fileSystemReady = LittleFS.begin();
@@ -446,9 +706,17 @@ bool LCD2Dashboard::runTouchCalibration(uint16_t* calData, size_t count) {
     _tft.fillScreen(kBackgroundColor);
     _tft.setTextColor(kTextColor, kBackgroundColor);
     _tft.setTextDatum(TL_DATUM);
+#ifdef SMOOTH_FONT
+    _tft.loadFont(NotoSansBold15);
+    _tft.drawString("Touch calibration", 12, 16);
+    _tft.drawString("Touch the markers", 12, 44);
+    _tft.drawString("at all corners", 12, 72);
+    _tft.unloadFont();
+#else
     _tft.drawString("Touch calibration", 12, 16, 2);
     _tft.drawString("Touch the markers", 12, 44, 2);
     _tft.drawString("at all corners", 12, 64, 2);
+#endif
     delay(1200);
 
     _tft.calibrateTouch(calData, TFT_MAGENTA, kBackgroundColor, 15);
@@ -462,6 +730,9 @@ void LCD2Dashboard::init(uint16_t width, uint16_t height, uint8_t rotation) {
 
     _tft.init();
     _tft.setRotation(_rotation);
+#ifdef ESP32
+    _tft.initDMA();
+#endif
     _width = static_cast<uint16_t>(_tft.width());
     _height = static_cast<uint16_t>(_tft.height());
     _tft.fillScreen(kBackgroundColor);
@@ -469,19 +740,36 @@ void LCD2Dashboard::init(uint16_t width, uint16_t height, uint8_t rotation) {
     _tft.setTextFont(1);
     _tft.setTextColor(kTextColor, kBackgroundColor);
     _tft.setTextDatum(TL_DATUM);
+    setDisplayEnabled(_tft, true);
     _touchReady = initTouchCalibration();
 
-    _driverReady = initSprites();
+    _driverReady = true;
+    initSprites();
+    initBootLogSprite();
+    initGameButtons();
     _visible = false;
     _layoutDrawn = false;
+    _bootLayoutDrawn = false;
     _dirty = true;
     _hasMetrics = false;
     _touchDown = false;
     _touchSampleCount = 0;
+    _lastBootRefreshMs = 0;
+    _bootLogHead = 0;
+    _bootLogCount = 0;
     _activeControl = ActiveControl::NONE;
     _lastTouchScanMs = 0;
     _lastRefreshMs = 0;
+    _powerOffMode = PowerOffMode::IDLE;
+    _powerOffLastFrameMs = 0;
+    _idleDrawn = false;
+    _gameSpriteReady = false;
+    _gamePrevTouched = false;
+    _gameTouched = false;
+    _gameTouchX = 0;
+    _gameTouchY = 0;
     resetHistory();
+    clearBootLog();
 }
 
 void LCD2Dashboard::onStateChange(SystemState newState) {
@@ -489,17 +777,70 @@ void LCD2Dashboard::onStateChange(SystemState newState) {
         return;
     }
 
+    const SystemState oldState = _state;
     const bool wasRunning = (_state == SystemState::RUNNING);
     _state = newState;
     const bool isRunning = (_state == SystemState::RUNNING);
+    const bool isTransitionState = (_state == SystemState::BOOTING_ON ||
+                                    _state == SystemState::SHUTTING_DOWN);
 
-    if (!isRunning) {
+    if (isTransitionState) {
+        if (_driverReady) {
+            setDisplayEnabled(_tft, true);
+        }
+
         resetHistory();
         _layoutDrawn = false;
+        _bootLayoutDrawn = false;
         _dirty = true;
         _touchDown = false;
         _touchSampleCount = 0;
         _activeControl = ActiveControl::NONE;
+        _lastTouchScanMs = 0;
+        _lastBootRefreshMs = 0;
+
+        if (oldState != _state) {
+            clearBootLog();
+            if (_state == SystemState::BOOTING_ON) {
+                appendBootLogLine("Booting Jetson");
+            } else {
+                appendBootLogLine("Shutting down");
+            }
+        }
+
+        if (_driverReady && wasRunning) {
+            _tft.fillScreen(kBackgroundColor);
+        }
+
+        _visible = false;
+        return;
+    }
+
+    if (!isRunning) {
+        if (_state == SystemState::POWER_OFF && _driverReady && oldState != SystemState::POWER_OFF) {
+            // Stop any running game and release its sprite RAM.
+            deleteGameSprite();
+
+            // Keep display ON — show the POWER_OFF idle screen with games menu.
+            setDisplayEnabled(_tft, true);
+            _tft.fillScreen(TFT_BLACK);
+            _powerOffMode = PowerOffMode::IDLE;
+            _powerOffLastFrameMs = 0;
+            _idleDrawn = false;
+            _gamePrevTouched = false;
+            _gameTouched = false;
+        }
+
+        resetHistory();
+        _layoutDrawn = false;
+        _bootLayoutDrawn = false;
+        _dirty = true;
+        _touchDown = false;
+        _touchSampleCount = 0;
+        _activeControl = ActiveControl::NONE;
+        _bootLogHead = 0;
+        _bootLogCount = 0;
+        _lastBootRefreshMs = 0;
         _lastTouchScanMs = 0;
         if (_driverReady && wasRunning) {
             _tft.fillScreen(kBackgroundColor);
@@ -508,13 +849,19 @@ void LCD2Dashboard::onStateChange(SystemState newState) {
         return;
     }
 
+    if (_driverReady) {
+        setDisplayEnabled(_tft, true);
+    }
+
     resetHistory();
     _layoutDrawn = false;
+    _bootLayoutDrawn = false;
     _dirty = true;
     _visible = false;
     _touchDown = false;
     _touchSampleCount = 0;
     _activeControl = ActiveControl::NONE;
+    _lastBootRefreshMs = 0;
     _lastRefreshMs = 0;
 }
 
@@ -582,6 +929,18 @@ void LCD2Dashboard::pushMetrics(const MetricsFrame& frame) {
     _dirty = true;
 }
 
+void LCD2Dashboard::pushBootKernelLine(const char* line) {
+    const bool isTransitionState = (_state == SystemState::BOOTING_ON ||
+                                    _state == SystemState::SHUTTING_DOWN);
+    if (line == nullptr || line[0] == '\0' || !isTransitionState) {
+        return;
+    }
+
+    appendBootLogWrapped(line);
+    _dirty = true;
+    _lastBootRefreshMs = 0;
+}
+
 void LCD2Dashboard::resetHistory() {
     _latest = {-1, -1, -1, -1.0f, -1.0f, -1};
     _historyWriteIndex = 0;
@@ -595,8 +954,163 @@ void LCD2Dashboard::resetHistory() {
     }
 }
 
+void LCD2Dashboard::clearBootLog() {
+    _bootLogHead = 0;
+    _bootLogCount = 0;
+    for (uint8_t i = 0; i < kBootLogRingCapacity; ++i) {
+        _bootLogLines[i][0] = '\0';
+    }
+}
+
+void LCD2Dashboard::appendBootLogLine(const char* line) {
+    if (line == nullptr || line[0] == '\0') {
+        return;
+    }
+
+    uint8_t slot = 0;
+    if (_bootLogCount < kBootLogRingCapacity) {
+        slot = static_cast<uint8_t>((_bootLogHead + _bootLogCount) % kBootLogRingCapacity);
+        ++_bootLogCount;
+    } else {
+        slot = _bootLogHead;
+        _bootLogHead = static_cast<uint8_t>((_bootLogHead + 1) % kBootLogRingCapacity);
+    }
+
+    strncpy(_bootLogLines[slot], line, kBootLogLineMaxLen);
+    _bootLogLines[slot][kBootLogLineMaxLen] = '\0';
+}
+
+void LCD2Dashboard::appendBootLogWrapped(const char* line) {
+    const char* payload = stripKernelPrefix(line);
+    if (payload == nullptr || payload[0] == '\0') {
+        return;
+    }
+
+    char cleaned[kBootLogLineMaxLen + 1];
+    size_t cleanLen = 0;
+    for (size_t i = 0; payload[i] != '\0' && cleanLen < kBootLogLineMaxLen; ++i) {
+        const char c = payload[i];
+        cleaned[cleanLen++] = (c >= 32 && c <= 126) ? c : ' ';
+    }
+    cleaned[cleanLen] = '\0';
+
+    if (cleaned[0] == '\0') {
+        return;
+    }
+
+    int16_t charsPerLine = static_cast<int16_t>((_width > (kBootTextInsetX * 2))
+                                                     ? ((_width - (kBootTextInsetX * 2)) / 6)
+                                                     : 1);
+    charsPerLine = clampInt16(charsPerLine, 12, static_cast<int16_t>(kBootLogLineMaxLen));
+
+    const char* cursor = cleaned;
+    while (*cursor != '\0') {
+        while (*cursor == ' ') {
+            ++cursor;
+        }
+        if (*cursor == '\0') {
+            break;
+        }
+
+        size_t take = strlen(cursor);
+        if (take > static_cast<size_t>(charsPerLine)) {
+            take = static_cast<size_t>(charsPerLine);
+            while (take > 8 && cursor[take] != '\0' && cursor[take] != ' ') {
+                --take;
+            }
+            if (take == 0) {
+                take = static_cast<size_t>(charsPerLine);
+            }
+        }
+
+        char segment[kBootLogLineMaxLen + 1];
+        memcpy(segment, cursor, take);
+        segment[take] = '\0';
+        appendBootLogLine(segment);
+        cursor += take;
+    }
+}
+
+void LCD2Dashboard::drawBootLogView() {
+    if (!_bootSpriteReady) {
+        return;
+    }
+
+    _bootLogSprite.fillSprite(kBootSpritePaper);
+    _bootLogSprite.setTextColor(kBootSpriteInk, kBootSpritePaper);
+    _bootLogSprite.setTextDatum(TL_DATUM);
+
+    const char* header = (_state == SystemState::SHUTTING_DOWN)
+                             ? "Jetson Serial2 Shutdown"
+                             : "Jetson Serial2 Boot";
+
+    _bootLogSprite.drawRect(0, 0, _width, _height, kBootSpriteInk);
+    _bootLogSprite.drawString(header, kBootTextInsetX, kBootTextInsetY, 1);
+    _bootLogSprite.drawFastHLine(1,
+                                 static_cast<int16_t>(kBootHeaderHeight - 1),
+                                 static_cast<int16_t>(_width - 2),
+                                 kBootSpriteInk);
+
+    const int16_t bodyTop = kBootHeaderHeight + 2;
+    const int16_t bodyBottom = static_cast<int16_t>(_height) - 3;
+    const int16_t lineCapacity = max<int16_t>(1, (bodyBottom - bodyTop + 1) / kBootLineHeight);
+
+    if (_bootLogCount == 0) {
+        _bootLogSprite.drawString("Waiting for kernel lines...", kBootTextInsetX, bodyTop, 1);
+    } else {
+        const uint8_t visibleCount = static_cast<uint8_t>(min<int16_t>(lineCapacity, _bootLogCount));
+        const uint8_t skipCount = static_cast<uint8_t>(_bootLogCount - visibleCount);
+
+        for (uint8_t i = 0; i < visibleCount; ++i) {
+            const uint8_t logicalIndex = static_cast<uint8_t>(skipCount + i);
+            const uint8_t ringIndex = static_cast<uint8_t>((_bootLogHead + logicalIndex) % kBootLogRingCapacity);
+            const int16_t y = static_cast<int16_t>(bodyTop + (i * kBootLineHeight));
+            _bootLogSprite.drawString(_bootLogLines[ringIndex], kBootTextInsetX, y, 1);
+        }
+    }
+
+    _bootLogSprite.setBitmapColor(kTextColor, kBackgroundColor);
+    _bootLogSprite.pushSprite(0, 0);
+}
+
 void LCD2Dashboard::update(uint32_t nowMs) {
-    if (_state != SystemState::RUNNING || !_driverReady) {
+    if (!_driverReady) {
+        return;
+    }
+
+    // POWER_OFF: show idle screen / game menu / active game
+    if (_state == SystemState::POWER_OFF) {
+        updatePowerOff(nowMs);
+        return;
+    }
+
+    if (_state == SystemState::BOOTING_ON || _state == SystemState::SHUTTING_DOWN) {
+        if (!_bootSpriteReady) {
+            return;
+        }
+
+        if (!_bootLayoutDrawn) {
+            _tft.fillScreen(kBackgroundColor);
+            _bootLayoutDrawn = true;
+            _visible = true;
+            _dirty = true;
+        }
+
+        if (!_dirty) {
+            return;
+        }
+
+        if (_lastBootRefreshMs != 0U && (nowMs - _lastBootRefreshMs) < kBootLogRefreshPeriodMs) {
+            return;
+        }
+
+        _lastBootRefreshMs = nowMs;
+        drawBootLogView();
+        _dirty = false;
+        return;
+    }
+
+    if (_state != SystemState::RUNNING || !_spritesReady) {
         return;
     }
 
@@ -643,7 +1157,7 @@ void LCD2Dashboard::handleTouch(uint32_t nowMs) {
 
     uint16_t touchX = 0;
     uint16_t touchY = 0;
-    const bool touched = _tft.getTouch(&touchX, &touchY, 250);
+    const bool touched = _tft.getTouch(&touchX, &touchY, 75);
     if (!touched) {
         _touchDown = false;
         _touchSampleCount = 0;
@@ -1149,3 +1663,375 @@ void LCD2Dashboard::drawNumericPanel(TFT_eSprite& sprite, int16_t w, int16_t h) 
 
     drawSliderControl(sprite, ledSliderRect, "LED", getRequestedLedBrightnessPercent(), kLedAccentColor);
 }
+
+// ============================================================================
+// POWER_OFF screen — 1-bit sprite helpers
+// ============================================================================
+
+bool LCD2Dashboard::initGameSprite() {
+    deleteGameSprite();
+    _gameSprite.setColorDepth(1);
+    if (_gameSprite.createSprite(_width, _height) == nullptr) {
+        _gameSpriteReady = false;
+        return false;
+    }
+    _gameSprite.setTextFont(1);
+    _gameSprite.setTextColor(kGameSpriteInk, kGameSpritePaper);
+    _gameSprite.setTextDatum(TL_DATUM);
+    // Maps 1-bit ink/paper values onto 16-bit colours for the TFT.
+    _gameSprite.setBitmapColor(TFT_WHITE, TFT_BLACK);
+    _gameSpriteReady = true;
+    return true;
+}
+
+void LCD2Dashboard::deleteGameSprite() {
+    if (_gameSprite.created()) {
+        _gameSprite.deleteSprite();
+    }
+    _gameSpriteReady = false;
+}
+
+// Returns true on rising edge (new touch contact). Updates prevTouched,
+// _gameTouched, _gameTouchX, _gameTouchY.
+bool LCD2Dashboard::sampleGameTouch(bool& prevTouched) {
+    bool cur = false;
+    if (_touchReady) {
+        uint16_t tx = 0, ty = 0;
+        cur = _tft.getTouch(&tx, &ty, 250);
+        if (cur) {
+            _gameTouchX = static_cast<int16_t>(tx);
+            _gameTouchY = static_cast<int16_t>(ty);
+        }
+    }
+    const bool risingEdge = cur && !prevTouched;
+    prevTouched = cur;
+    _gameTouched = cur;
+    return risingEdge;
+}
+
+// ============================================================================
+// ButtonWidget geometry initialisation (call after _width/_height are final)
+// ============================================================================
+
+void LCD2Dashboard::initGameButtons() {
+    const int16_t btnX = static_cast<int16_t>((_width  - kGameBtnW) / 2);
+    const int16_t btnY = static_cast<int16_t>(_height - kGameBtnH - kGameBtnMarginB);
+
+    _btnGames.initButtonUL(btnX, btnY, kGameBtnW, kGameBtnH,
+                           TFT_DARKGREY, TFT_BLACK, TFT_LIGHTGREY, "GAMES", 2);
+
+    for (int8_t i = 0; i < kMenuItemCount; ++i) {
+        const int16_t itemY = static_cast<int16_t>(
+            btnY - 4 - (kMenuItemCount - i) * (kMenuItemH + 2));
+        if (i == 0) {
+            _btnDino.initButtonUL(btnX, itemY, kGameBtnW, kMenuItemH,
+                                  TFT_DARKGREY, TFT_BLACK, TFT_LIGHTGREY, "Dino Runner", 2);
+        } else {
+            _btnBall.initButtonUL(btnX, itemY, kGameBtnW, kMenuItemH,
+                                  TFT_DARKGREY, TFT_BLACK, TFT_LIGHTGREY, "Paddle Ball", 2);
+        }
+    }
+
+    // EXIT button – top-right corner, shared by both games.
+    // Width chosen to fit inside the ball-game right panel (36 px) with a small margin.
+    const int16_t exitX = static_cast<int16_t>(_width - kExitBtnOffsetX);
+    _btnExit.initButtonUL(exitX, kExitBtnY, kExitBtnW, kExitBtnH,
+                          TFT_DARKGREY, TFT_BLACK, TFT_LIGHTGREY, "EXIT", 1);
+}
+
+// ============================================================================
+// POWER_OFF idle screen
+// ============================================================================
+
+void LCD2Dashboard::drawPowerOffIdle() {
+    _tft.fillScreen(TFT_BLACK);
+
+    const int16_t cx = static_cast<int16_t>(_width / 2);
+    const int16_t cy = static_cast<int16_t>(_height / 2 - 24);
+
+    // Title
+    _tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    _tft.setTextDatum(MC_DATUM);
+#ifdef SMOOTH_FONT
+    _tft.loadFont(NotoSansBold36);
+    _tft.drawString("JETSON IS", cx, static_cast<int16_t>(cy - 18));
+    _tft.drawString("OFFLINE", cx, static_cast<int16_t>(cy + 22));
+    _tft.unloadFont();
+#else
+    _tft.drawString("JETSON IS", cx, static_cast<int16_t>(cy - 18), 4);
+    _tft.drawString("OFFLINE", cx, static_cast<int16_t>(cy + 14), 4);
+#endif
+
+    // Thin separator
+    _tft.drawFastHLine(static_cast<int16_t>(cx - 54),
+                       static_cast<int16_t>(cy + 36),
+                       108, TFT_DARKGREY);
+
+    // Enclosure sensor data (if available)
+    if (_boxTemp >= 0.0f || (_boxHumidity >= 0.0f && _boxHumidity <= 100.0f)) {
+        char envBuf[28];
+        if (_boxTemp >= 0.0f && _boxHumidity >= 0.0f && _boxHumidity <= 100.0f) {
+            snprintf(envBuf, sizeof(envBuf), "%.0fC  %d%%",
+                     static_cast<double>(_boxTemp),
+                     static_cast<int>(_boxHumidity + 0.5f));
+        } else if (_boxTemp >= 0.0f) {
+            snprintf(envBuf, sizeof(envBuf), "%.0fC", static_cast<double>(_boxTemp));
+        } else {
+            snprintf(envBuf, sizeof(envBuf), "%d%% RH", static_cast<int>(_boxHumidity + 0.5f));
+        }
+        _tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    #ifdef SMOOTH_FONT
+        _tft.loadFont(NotoSansBold15);
+        _tft.drawString(envBuf, cx, static_cast<int16_t>(cy + 54));
+        _tft.unloadFont();
+    #else
+        _tft.drawString(envBuf, cx, static_cast<int16_t>(cy + 54), 2);
+    #endif
+    }
+
+    // GAMES button
+    const int16_t btnX = static_cast<int16_t>((_width - kGameBtnW) / 2);
+    const int16_t btnY = static_cast<int16_t>(_height - kGameBtnH - kGameBtnMarginB);
+    drawPowerOffButton(_tft, btnX, btnY, kGameBtnW, kGameBtnH, false, "GAMES", nullptr);
+
+    _tft.setTextDatum(TL_DATUM);
+    _tft.setTextColor(kTextColor, kBackgroundColor);
+}
+
+// ============================================================================
+// Game menu (dropdown above the GAMES button)
+// ============================================================================
+
+void LCD2Dashboard::drawGameMenu() {
+    _tft.fillScreen(TFT_BLACK);
+
+    const int16_t cx  = static_cast<int16_t>(_width / 2);
+    const int16_t btnY = static_cast<int16_t>(_height - kGameBtnH - kGameBtnMarginB);
+
+    // "GAMES" button drawn in active/inverted state
+    const int16_t btnX = static_cast<int16_t>((_width - kGameBtnW) / 2);
+    drawPowerOffButton(_tft, btnX, btnY, kGameBtnW, kGameBtnH, true, "GAMES", nullptr);
+
+    // "SELECT GAME" heading above the menu items
+    _tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    _tft.setTextDatum(MC_DATUM);
+#ifdef SMOOTH_FONT
+    _tft.loadFont(NotoSansBold15);
+    _tft.drawString("SELECT GAME", cx,
+                    static_cast<int16_t>(btnY - (kMenuItemCount * (kMenuItemH + 2)) - 28));
+    _tft.unloadFont();
+#else
+    _tft.drawString("SELECT GAME", cx,
+                    static_cast<int16_t>(btnY - (kMenuItemCount * (kMenuItemH + 2)) - 28), 2);
+#endif
+
+    const int16_t dinoY = static_cast<int16_t>(btnY - 4 - (kMenuItemCount - 0) * (kMenuItemH + 2));
+    const int16_t ballY = static_cast<int16_t>(btnY - 4 - (kMenuItemCount - 1) * (kMenuItemH + 2));
+    drawPowerOffButton(_tft, btnX, dinoY, kGameBtnW, kMenuItemH, false, "Dino", "Running");
+    drawPowerOffButton(_tft, btnX, ballY, kGameBtnW, kMenuItemH, false, "Paddle", "Ball");
+
+    _tft.setTextDatum(TL_DATUM);
+    _tft.setTextColor(kTextColor, kBackgroundColor);
+}
+
+// ============================================================================
+// Main POWER_OFF update dispatcher
+// ============================================================================
+
+void LCD2Dashboard::updatePowerOff(uint32_t nowMs) {
+    if (!_driverReady) {
+        return;
+    }
+
+    // Sample touch once per call; returns true on new-contact rising edge.
+    const bool risingEdge = sampleGameTouch(_gamePrevTouched);
+    const bool inDinoGame = (_powerOffMode == PowerOffMode::GAME_DINO);
+    const bool inBallGame = (_powerOffMode == PowerOffMode::GAME_BALL);
+    const bool inAnyGame = inDinoGame || inBallGame;
+    const bool gameFinished = (inDinoGame && _dinoGame.finished) ||
+                              (inBallGame && _ballGame.finished);
+
+    if (inAnyGame && gameFinished && risingEdge) {
+        const GameOverMenuLayout menu = makeGameOverMenuLayout(_width, _height);
+        if (pointInBox(_gameTouchX,
+                       _gameTouchY,
+                       menu.restartX,
+                       menu.restartY,
+                       kGameOverBtnW,
+                       kGameOverBtnH)) {
+            if (inDinoGame) {
+                lcd2_game_dino::reset(_dinoGame, _width, _height, nowMs);
+            } else {
+                lcd2_game_ball::reset(_ballGame, _width, _height);
+            }
+            _powerOffLastFrameMs = 0;
+            return;
+        }
+
+        if (pointInBox(_gameTouchX,
+                       _gameTouchY,
+                       menu.exitX,
+                       menu.exitY,
+                       kGameOverBtnW,
+                       kGameOverBtnH)) {
+            deleteGameSprite();
+            _tft.fillScreen(TFT_BLACK);
+            _powerOffMode = PowerOffMode::IDLE;
+            _idleDrawn = false;
+            return;
+        }
+    }
+
+    // --- EXIT zone: top-right corner tap during any game ---
+    if ((_powerOffMode == PowerOffMode::GAME_DINO ||
+         _powerOffMode == PowerOffMode::GAME_BALL) && risingEdge && !gameFinished) {
+        if (_btnExit.contains(_gameTouchX, _gameTouchY)) {
+            deleteGameSprite();
+            _tft.fillScreen(TFT_BLACK);
+            _powerOffMode = PowerOffMode::IDLE;
+            _idleDrawn = false;
+            return;
+        }
+        // Jump request for dino game
+        if (_powerOffMode == PowerOffMode::GAME_DINO) {
+            _dinoGame.jumpRequested = true;
+        }
+    }
+
+    // --- IDLE ---
+    if (_powerOffMode == PowerOffMode::IDLE) {
+        if (!_idleDrawn) {
+            drawPowerOffIdle();
+            _idleDrawn = true;
+            _dirty = false;
+            _powerOffLastFrameMs = nowMs;
+        } else if (_dirty ||
+                   (nowMs - _powerOffLastFrameMs >= kPowerOffRefreshMs)) {
+            drawPowerOffIdle();
+            _dirty = false;
+            _powerOffLastFrameMs = nowMs;
+        }
+
+        if (risingEdge) {
+            if (_btnGames.contains(_gameTouchX, _gameTouchY)) {
+                _powerOffMode = PowerOffMode::GAME_MENU;
+                drawGameMenu();
+            }
+        }
+        return;
+    }
+
+    // --- GAME_MENU ---
+    if (_powerOffMode == PowerOffMode::GAME_MENU) {
+        if (risingEdge) {
+            bool handled = false;
+            if (_btnDino.contains(_gameTouchX, _gameTouchY)) {
+                enterDinoGame();
+                handled = true;
+            } else if (_btnBall.contains(_gameTouchX, _gameTouchY)) {
+                enterBallGame();
+                handled = true;
+            }
+            if (!handled) {
+                _powerOffMode = PowerOffMode::IDLE;
+                _idleDrawn = false;
+            }
+        }
+        return;
+    }
+
+    // --- Game frame-rate gate (both games run at kGameFramePeriodMs) ---
+    if (nowMs - _powerOffLastFrameMs < kGameFramePeriodMs) {
+        return;
+    }
+    _powerOffLastFrameMs = nowMs;
+
+    if (_powerOffMode == PowerOffMode::GAME_DINO) {
+        tickDinoGame(nowMs);
+        if (_gameSpriteReady) {
+            renderDinoGame();
+        }
+        return;
+    }
+    if (_powerOffMode == PowerOffMode::GAME_BALL) {
+        tickBallGame(nowMs);
+        if (_gameSpriteReady) {
+            renderBallGame();
+        }
+        return;
+    }
+}
+
+void LCD2Dashboard::enterDinoGame() {
+    if (!initGameSprite()) {
+        _powerOffMode = PowerOffMode::IDLE;
+        _idleDrawn = false;
+        return;
+    }
+
+    randomSeed(static_cast<unsigned long>(millis()));
+    _powerOffMode = PowerOffMode::GAME_DINO;
+    _powerOffLastFrameMs = 0;
+    lcd2_game_dino::reset(_dinoGame, _width, _height, millis());
+}
+
+void LCD2Dashboard::tickDinoGame(uint32_t nowMs) {
+    if (_dinoGame.finished) {
+        return;
+    }
+
+    lcd2_game_dino::tick(_dinoGame, _width, _height, nowMs);
+}
+
+void LCD2Dashboard::renderDinoGame() {
+    lcd2_game_dino::render(_dinoGame, _gameSprite, _width, _height);
+    drawExitButtonOnGameSprite(_gameSprite, _width);
+    if (_dinoGame.finished) {
+        drawGameOverMenuOnSprite(_gameSprite, _width, _height, _dinoGame.score);
+    }
+    _gameSprite.setBitmapColor(_dinoGame.isNight ? TFT_WHITE : TFT_BLACK,
+                               _dinoGame.isNight ? TFT_BLACK : TFT_WHITE);
+    _tft.startWrite();
+    _gameSprite.pushSprite(0, 0);
+    _tft.endWrite();
+}
+
+void LCD2Dashboard::enterBallGame() {
+    if (!initGameSprite()) {
+        _powerOffMode = PowerOffMode::IDLE;
+        _idleDrawn = false;
+        return;
+    }
+
+    randomSeed(static_cast<unsigned long>(millis()));
+    _powerOffMode = PowerOffMode::GAME_BALL;
+    _powerOffLastFrameMs = 0;
+    lcd2_game_ball::reset(_ballGame, _width, _height);
+}
+
+void LCD2Dashboard::tickBallGame(uint32_t nowMs) {
+    if (_ballGame.finished) {
+        return;
+    }
+
+    lcd2_game_ball::tick(_ballGame,
+                         _width,
+                         _height,
+                         nowMs,
+                         _gameTouched,
+                         _gameTouchX,
+                         _gameTouchY);
+}
+
+void LCD2Dashboard::renderBallGame() {
+    lcd2_game_ball::render(_ballGame, _gameSprite, _width, _height);
+    drawExitButtonOnGameSprite(_gameSprite, _width);
+    if (_ballGame.finished) {
+        drawGameOverMenuOnSprite(_gameSprite, _width, _height, _ballGame.score);
+    }
+    _gameSprite.setBitmapColor(TFT_WHITE, TFT_BLACK);
+    _tft.startWrite();
+    _gameSprite.pushSprite(0, 0);
+    _tft.endWrite();
+}
+

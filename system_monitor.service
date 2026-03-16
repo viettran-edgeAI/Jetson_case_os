@@ -1,0 +1,18 @@
+[Unit]
+Description=Jetson Shield stats and tmux bridge
+After=multi-user.target
+
+[Service]
+EnvironmentFile=-/etc/default/system_monitor
+ExecStart=/usr/local/bin/system_monitor /dev/ttyTHS1
+Restart=on-failure
+User=root
+StandardOutput=journal
+StandardError=journal
+
+# Optional environment variables in /etc/default/system_monitor:
+# SYSTEM_MONITOR_TMUX_USER=<linux user that owns tmux sessions>
+# SYSTEM_MONITOR_TMUX_SOCKET=<explicit tmux socket path>
+
+[Install]
+WantedBy=multi-user.target

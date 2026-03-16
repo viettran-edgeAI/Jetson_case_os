@@ -4,7 +4,10 @@
 #include <Arduino.h>
 #include <stdint.h>
 #include <TFT_eSPI.h>
+#include <TFT_eWidget.h>
 
+#include "lcd2_game_ball.h"
+#include "lcd2_game_dino.h"
 #include "system_configuration.h"
 
 class LCD2Dashboard {
@@ -36,6 +39,7 @@ public:
     void onAlertChange(uint8_t alertMask);
     void clearMetrics();
     void pushMetrics(const MetricsFrame& frame);
+    void pushBootKernelLine(const char* line);
     void setEnvironment(float boxTemp,
                         float boxHumidity,
                         int16_t fanPercent,
@@ -64,11 +68,40 @@ private:
     uint32_t _lastTouchScanMs;
     int16_t _touchSamplesY[3];
     uint8_t _touchSampleCount;
+    bool _bootLayoutDrawn;
+    uint32_t _lastBootRefreshMs;
+
+    static constexpr size_t kBootLogLineMaxLen = 80;
+    static constexpr uint8_t kBootLogRingCapacity = 48;
+    char _bootLogLines[kBootLogRingCapacity][kBootLogLineMaxLen + 1];
+    uint8_t _bootLogHead;
+    uint8_t _bootLogCount;
 
     enum class ActiveControl : uint8_t {
         NONE = 0,
         LED_SLIDER
     };
+
+    // ---- POWER_OFF screen / game sub-states ----------------------------
+    enum class PowerOffMode : uint8_t {
+        IDLE      = 0,
+        GAME_MENU = 1,
+        GAME_DINO = 2,
+        GAME_BALL = 3,
+    };
+
+    // ---- Power-off screen member variables ----------------------------
+    PowerOffMode   _powerOffMode;
+    uint32_t       _powerOffLastFrameMs;
+    bool           _idleDrawn;
+    LCD2DinoGameState _dinoGame;
+    LCD2BallGameState _ballGame;
+    TFT_eSprite    _gameSprite;
+    bool           _gameSpriteReady;
+    bool           _gamePrevTouched;
+    bool           _gameTouched;
+    int16_t        _gameTouchX;
+    int16_t        _gameTouchY;
 
     ActiveControl _activeControl;
 
@@ -98,27 +131,53 @@ private:
         Rect ramPlot;
     };
 
+    bool initGameSprite();
+    void deleteGameSprite();
+    bool sampleGameTouch(bool& prevTouched);
+    void initGameButtons();
+    void updatePowerOff(uint32_t nowMs);
+    void drawPowerOffIdle();
+    void drawGameMenu();
+    void enterDinoGame();
+    void tickDinoGame(uint32_t nowMs);
+    void renderDinoGame();
+    void enterBallGame();
+    void tickBallGame(uint32_t nowMs);
+    void renderBallGame();
+
     static int16_t clampUsage(int16_t value);
     void resetHistory();
     bool initSprites();
     void deleteSprites();
+    bool initBootLogSprite();
+    void deleteBootLogSprite();
     bool initTouchCalibration();
     bool loadTouchCalibration(uint16_t* outCalData, size_t count) const;
     bool saveTouchCalibration(const uint16_t* calData, size_t count) const;
     bool runTouchCalibration(uint16_t* calData, size_t count);
 
     TFT_eSPI _tft;
+    ButtonWidget _btnGames;
+    ButtonWidget _btnDino;
+    ButtonWidget _btnBall;
+    ButtonWidget _btnExit;
     TFT_eSprite _cpuSprite;
     TFT_eSprite _gpuSprite;
     TFT_eSprite _ramSprite;
     TFT_eSprite _panelSprite;
+    TFT_eSprite _bootLogSprite;
     bool _spritesReady;
+    bool _bootSpriteReady;
 
     DashboardLayout buildLayout() const;
     void drawLayout();
     void drawDynamic();
     void drawNoData();
+    void drawBootLogView();
     void handleTouch(uint32_t nowMs);
+    void clearBootLog();
+    void appendBootLogLine(const char* line);
+    void appendBootLogWrapped(const char* line);
     void drawGraphScaffold(const Rect& frame,
                            const Rect& plot,
                            const char* title,
