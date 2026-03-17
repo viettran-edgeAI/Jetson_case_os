@@ -53,7 +53,7 @@ constexpr uint8_t kGameSpriteInk   = 1;
 constexpr uint8_t kGameSpritePaper = 0;
 
 // Frame timing
-constexpr uint32_t kPowerOffRefreshMs    = 30000UL; // idle screen env-data refresh
+constexpr uint32_t kPowerOffRefreshMs    = 8000UL;  // idle screen env-data refresh
 constexpr uint32_t kGameFramePeriodMs    = 16U;     // 60 Hz target when POWER_OFF is active
 
 // "GAMES" button geometry (screen-coordinate-independent fractions are
@@ -418,6 +418,7 @@ LCD2Dashboard::LCD2Dashboard()
       _rotation(DEFAULT_ROTATION),
       _state(SystemState::POWER_OFF),
       _driverReady(false),
+    _degradedMode(false),
       _visible(false),
       _layoutDrawn(false),
       _dirty(true),
@@ -623,8 +624,7 @@ bool LCD2Dashboard::initTouchCalibration() {
     uint16_t calData[5] = {0};
     bool fileSystemReady = LittleFS.begin();
     if (!fileSystemReady) {
-        LittleFS.format();
-        fileSystemReady = LittleFS.begin();
+        Serial.println("[LCD2] LittleFS unavailable; touch calibration will not persist");
     }
 
     bool hasCalibration = false;
@@ -717,8 +717,6 @@ bool LCD2Dashboard::runTouchCalibration(uint16_t* calData, size_t count) {
     _tft.drawString("Touch the markers", 12, 44, 2);
     _tft.drawString("at all corners", 12, 64, 2);
 #endif
-    delay(1200);
-
     _tft.calibrateTouch(calData, TFT_MAGENTA, kBackgroundColor, 15);
     return true;
 }
@@ -744,8 +742,12 @@ void LCD2Dashboard::init(uint16_t width, uint16_t height, uint8_t rotation) {
     _touchReady = initTouchCalibration();
 
     _driverReady = true;
-    initSprites();
-    initBootLogSprite();
+    const bool dashboardSpriteReady = initSprites();
+    const bool bootLogSpriteReady = initBootLogSprite();
+    _degradedMode = !(dashboardSpriteReady && bootLogSpriteReady);
+    if (_degradedMode) {
+        Serial.println("[LCD2] Entering degraded mode (sprite allocation failure)");
+    }
     initGameButtons();
     _visible = false;
     _layoutDrawn = false;
@@ -1073,6 +1075,30 @@ void LCD2Dashboard::drawBootLogView() {
     _bootLogSprite.pushSprite(0, 0);
 }
 
+void LCD2Dashboard::drawDegradedModeNotice(uint32_t nowMs, const char* reason) {
+    if (!_driverReady || !_degradedMode) {
+        return;
+    }
+
+    if (!_dirty && _lastRefreshMs != 0U && (nowMs - _lastRefreshMs) < 500U) {
+        return;
+    }
+
+    _tft.fillScreen(kBackgroundColor);
+    _tft.setTextColor(TFT_RED, kBackgroundColor);
+    _tft.setTextDatum(TL_DATUM);
+    _tft.drawString("LCD2 DEGRADED MODE", 8, 8, 2);
+
+    if (reason != nullptr && reason[0] != '\0') {
+        _tft.setTextColor(kMutedTextColor, kBackgroundColor);
+        _tft.drawString(reason, 8, 34, 1);
+    }
+
+    _tft.setTextColor(kTextColor, kBackgroundColor);
+    _lastRefreshMs = nowMs;
+    _dirty = false;
+}
+
 void LCD2Dashboard::update(uint32_t nowMs) {
     if (!_driverReady) {
         return;
@@ -1086,6 +1112,7 @@ void LCD2Dashboard::update(uint32_t nowMs) {
 
     if (_state == SystemState::BOOTING_ON || _state == SystemState::SHUTTING_DOWN) {
         if (!_bootSpriteReady) {
+            drawDegradedModeNotice(nowMs, "BOOT LOG RENDER OFFLINE");
             return;
         }
 
@@ -1111,6 +1138,9 @@ void LCD2Dashboard::update(uint32_t nowMs) {
     }
 
     if (_state != SystemState::RUNNING || !_spritesReady) {
+        if (_state == SystemState::RUNNING && !_spritesReady) {
+            drawDegradedModeNotice(nowMs, "DASHBOARD RENDER OFFLINE");
+        }
         return;
     }
 
@@ -1675,6 +1705,7 @@ bool LCD2Dashboard::initGameSprite() {
         _gameSpriteReady = false;
         return false;
     }
+
     _gameSprite.setTextFont(1);
     _gameSprite.setTextColor(kGameSpriteInk, kGameSpritePaper);
     _gameSprite.setTextDatum(TL_DATUM);

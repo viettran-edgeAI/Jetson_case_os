@@ -24,15 +24,41 @@ constexpr BitmapAsset kSunAltAsset = {sun_1, 50, 50};
 constexpr BitmapAsset kMoonAsset = {moon, 30, 29};
 
 constexpr BitmapAsset kCloudDefs[] = {
-    {cloud_0, 30, 17},
-    {cloud_1, 45, 24},
+    {cloud_0, 45, 26},
+    {cloud_1, 70, 27},
+    {cloud_2, 60, 32},
+    {cloud_3, 36, 23},
+};
+
+constexpr uint8_t kNightCloudTypes[] = {0U, 1U};
+constexpr uint8_t kDayCloudTypes[] = {2U, 3U};
+
+constexpr BitmapAsset kBirdDefsFwd[] = {
+    {bird_0, 33, 19},
+    {bird_1, 33, 24},
+    {bird_2, 33, 22},
+};
+
+constexpr BitmapAsset kBirdDefsRev[] = {
+    {bird_0_rev, 33, 19},
+    {bird_1_rev, 33, 24},
+    {bird_2_rev, 33, 22},
+};
+
+constexpr BitmapAsset kMountainDefs[] = {
+    {mountain_0, 100, 40},
+    {mountain_1, 150, 52},
+    {mountain_2, 100, 30},
+    {mountain_3, 150, 48},
+    {mountain_4, 100, 45},
+    {mountain_5, 150, 55},
 };
 
 constexpr BitmapAsset kStarDefs[] = {
-    {star_0, 7, 7},
-    {star_1, 11, 11},
-        {star_2, 5, 5},
-        {star_3, 9, 9},
+    {star_0, 5, 5},
+    {star_1, 7, 7},
+    {star_2, 9, 9},
+    {star_3, 11, 11},
 };
 
 constexpr BitmapAsset kCactusDefs[] = {
@@ -42,9 +68,13 @@ constexpr BitmapAsset kCactusDefs[] = {
     {cactus_3, 16, 35},
 };
 
+constexpr int16_t kTallestCactusH = 35;
+
 constexpr uint8_t kCloudTypeCount = static_cast<uint8_t>(sizeof(kCloudDefs) / sizeof(kCloudDefs[0]));
 constexpr uint8_t kCactusTypeCount = static_cast<uint8_t>(sizeof(kCactusDefs) / sizeof(kCactusDefs[0]));
 constexpr uint8_t kStarTypeCount = static_cast<uint8_t>(sizeof(kStarDefs) / sizeof(kStarDefs[0]));
+constexpr uint8_t kBirdFrameCount = static_cast<uint8_t>(sizeof(kBirdDefsFwd) / sizeof(kBirdDefsFwd[0]));
+constexpr uint8_t kMountainTypeCount = static_cast<uint8_t>(sizeof(kMountainDefs) / sizeof(kMountainDefs[0]));
 
 constexpr int16_t kDinoW = 30;
 constexpr int16_t kDinoH = 32;
@@ -61,12 +91,15 @@ constexpr uint32_t kGameDeadPauseMs = 1200U;
 constexpr uint32_t kSpeedRampOdometerPx = 1600U;  // 100 "game-km": at base speed 16 px/tick → 100 ticks/ramp
 constexpr int16_t kSpawnXMinOffset = 8;
 constexpr int16_t kSpawnXMaxOffset = 28;
-constexpr uint8_t kSpawnClusterSearchTries = 24;
-constexpr int16_t kSurvivalSimMaxFrames = 128;
+constexpr uint8_t kSpawnClusterSearchTries = 12;
+constexpr int16_t kSurvivalSimMaxFrames = 48;
 constexpr int16_t kClusterGapMinPx = 12;
 constexpr int16_t kClusterGapMaxPx = 26;
 constexpr int16_t kCloudMinY = 18;
 constexpr int16_t kCloudTopPad = 86;
+constexpr int16_t kCloudSmallestH = 23;
+constexpr int16_t kCloudLargestH = 32;
+constexpr int16_t kCloudSizeLiftScale = 2;
 constexpr int16_t kCloudRespawnMinOffset = 8;
 constexpr int16_t kCloudRespawnMaxOffset = 90;
 constexpr int8_t kCloudMinSpeed = 1;
@@ -89,9 +122,31 @@ constexpr uint8_t kStarLifetimeMinSec = 6;
 constexpr uint8_t kStarLifetimeMaxSec = 12;
 constexpr uint8_t kStarBlinkMinSec = 1;
 constexpr uint8_t kStarBlinkMaxSec = 8;
-constexpr uint8_t kStarPlacementMaxTries = 72;
+constexpr uint8_t kStarPlacementMaxTries = 24;
 constexpr int16_t kStarMinGapPx = 10;
 constexpr int16_t kStarPlacementInset = 2;
+constexpr uint8_t kStarBlinkModeOnOff = 0;
+constexpr uint8_t kStarBlinkModeMorph = 1;
+constexpr uint32_t kStarBlinkStepMs = 300U;
+constexpr int16_t kStarSmallestH = 5;
+constexpr int16_t kStarLargestH = 11;
+constexpr int16_t kStarSizeLiftScale = 2;
+constexpr int16_t kMountainTrackCount = 6;
+constexpr int16_t kMountainStepPx = 150;
+constexpr uint8_t kMountainVisibleMin = 3;
+constexpr uint8_t kMountainVisibleMax = 4;
+constexpr uint8_t kMountainScrollDiv = 3;
+constexpr int16_t kMountainBackLiftPx = kTallestCactusH + 15;
+constexpr int16_t kMountainLaneDepthJitterPx = 6;
+constexpr uint32_t kBirdSpawnMinDelayMs = 1700U;
+constexpr uint32_t kBirdSpawnMaxDelayMs = 4200U;
+constexpr uint32_t kBirdFlapStepMs = 75U;
+constexpr uint32_t kBirdGlideBeforeFlapMinMs = 450U;
+constexpr uint32_t kBirdGlideBeforeFlapMaxMs = 1800U;
+constexpr uint32_t kBirdHitBlinkStepMs = 90U;
+constexpr uint8_t kBirdHitBlinkSteps = 6;
+constexpr int16_t kBirdAltitudeMarginTop = 12;
+constexpr int16_t kBirdAltitudeMarginBottom = 8;
 constexpr int16_t kScoreTileY = 0;
 constexpr int16_t kScoreTileW = 86;
 constexpr int16_t kScoreTileH = 18;
@@ -107,6 +162,8 @@ constexpr int16_t kLivesTileYOffset = 2;
 constexpr int16_t kLivesTileW = 68;
 constexpr int16_t kLivesTileH = 18;
 constexpr int16_t kHudAvoidPad = 1;
+constexpr uint8_t kNightCloudTickDiv = 2;
+constexpr uint8_t kBirdSpeedPercent = 170;
 
 constexpr size_t monoBitmapBytes(int16_t w, int16_t h) {
     return static_cast<size_t>(((w + 7) / 8) * h);
@@ -120,19 +177,33 @@ constexpr bool bitmapSizeMatches(const unsigned char (&)[N], int16_t w, int16_t 
 static_assert(bitmapSizeMatches(dino_0, 30, 32), "dino_0 metadata must match bitmap payload size");
 static_assert(bitmapSizeMatches(dino_1, 30, 32), "dino_1 metadata must match bitmap payload size");
 static_assert(bitmapSizeMatches(dino_2, 30, 32), "dino_2 metadata must match bitmap payload size");
-static_assert(bitmapSizeMatches(cloud_0, 20, 11), "cloud_0 metadata must match bitmap payload size");
-static_assert(bitmapSizeMatches(cloud_1, 30, 16), "cloud_1 metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(cloud_0, 45, 26), "cloud_0 metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(cloud_1, 70, 27), "cloud_1 metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(cloud_2, 60, 32), "cloud_2 metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(cloud_3, 36, 23), "cloud_3 metadata must match bitmap payload size");
 static_assert(bitmapSizeMatches(cactus_0, 10, 19), "cactus_0 metadata must match bitmap payload size");
 static_assert(bitmapSizeMatches(cactus_1, 12, 26), "cactus_1 metadata must match bitmap payload size");
 static_assert(bitmapSizeMatches(cactus_2, 14, 28), "cactus_2 metadata must match bitmap payload size");
 static_assert(bitmapSizeMatches(cactus_3, 16, 35), "cactus_3 metadata must match bitmap payload size");
 static_assert(bitmapSizeMatches(sun, 50, 50), "sun metadata must match bitmap payload size");
 static_assert(bitmapSizeMatches(moon, 30, 29), "moon metadata must match bitmap payload size");
-static_assert(bitmapSizeMatches(star_0, 7, 7), "star_0 metadata must match bitmap payload size");
-static_assert(bitmapSizeMatches(star_1, 11, 11), "star_1 metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(star_0, 5, 5), "star_0 metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(star_1, 7, 7), "star_1 metadata must match bitmap payload size");
 static_assert(bitmapSizeMatches(sun_1, 50, 50), "sun_1 metadata must match bitmap payload size");
-static_assert(bitmapSizeMatches(star_2, 5, 5), "star_2 metadata must match bitmap payload size");
-static_assert(bitmapSizeMatches(star_3, 9, 9), "star_3 metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(star_2, 9, 9), "star_2 metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(star_3, 11, 11), "star_3 metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(bird_0, 33, 19), "bird_0 metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(bird_1, 33, 24), "bird_1 metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(bird_2, 33, 22), "bird_2 metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(bird_0_rev, 33, 19), "bird_0_rev metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(bird_1_rev, 33, 24), "bird_1_rev metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(bird_2_rev, 33, 22), "bird_2_rev metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(mountain_0, 100, 40), "mountain_0 metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(mountain_1, 150, 52), "mountain_1 metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(mountain_2, 100, 30), "mountain_2 metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(mountain_3, 150, 48), "mountain_3 metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(mountain_4, 100, 45), "mountain_4 metadata must match bitmap payload size");
+static_assert(bitmapSizeMatches(mountain_5, 150, 55), "mountain_5 metadata must match bitmap payload size");
 
 uint8_t hash8(uint32_t value) {
     value ^= (value << 13);
@@ -156,16 +227,54 @@ const BitmapAsset& starAsset(uint8_t type) {
     return kStarDefs[safeType];
 }
 
+const BitmapAsset& birdAsset(uint8_t frame, int8_t direction) {
+    const uint8_t safeFrame = (frame < kBirdFrameCount) ? frame : 0;
+    return (direction < 0) ? kBirdDefsRev[safeFrame] : kBirdDefsFwd[safeFrame];
+}
+
+const BitmapAsset& mountainAsset(uint8_t type) {
+    const uint8_t safeType = (type < kMountainTypeCount) ? type : 0;
+    return kMountainDefs[safeType];
+}
+
+bool cloudUsesSolidInvertedInk(uint8_t type) {
+    // Only cloud types 2+ should be rendered with a solid inverted fill.
+    return type >= 2U;
+}
+
+constexpr uint8_t kNightMaxClouds = 2;
+
+uint8_t maxClouds(bool isNight) {
+    return isNight ? kNightMaxClouds : LCD2DinoGameState::kMaxClouds;
+}
+
 uint8_t randomCactusType() {
     return static_cast<uint8_t>(random(kCactusTypeCount));
 }
 
-uint8_t randomCloudType() {
-    return static_cast<uint8_t>(random(kCloudTypeCount));
+const uint8_t* cloudTypePool(bool isNight) {
+    return isNight ? kNightCloudTypes : kDayCloudTypes;
+}
+
+uint8_t cloudTypePoolSize(bool isNight) {
+    return isNight
+        ? static_cast<uint8_t>(sizeof(kNightCloudTypes) / sizeof(kNightCloudTypes[0]))
+        : static_cast<uint8_t>(sizeof(kDayCloudTypes) / sizeof(kDayCloudTypes[0]));
+}
+
+uint8_t randomCloudType(bool isNight) {
+    const uint8_t poolCount = cloudTypePoolSize(isNight);
+    const uint8_t* pool = cloudTypePool(isNight);
+    return pool[static_cast<uint8_t>(random(poolCount))];
 }
 
 int8_t randomCloudSpeed() {
     return static_cast<int8_t>(random(kCloudMinSpeed, kCloudMaxSpeed + 1));
+}
+
+int8_t randomCloudSignedSpeed(int8_t directionSign) {
+    const int8_t magnitude = randomCloudSpeed();
+    return (directionSign >= 0) ? magnitude : static_cast<int8_t>(-magnitude);
 }
 
 uint8_t randomStarType() {
@@ -193,6 +302,76 @@ uint16_t currentSpeedKmh(const LCD2DinoGameState& state) {
 
 int16_t cloudMaxY(int16_t ground) {
     return max<int16_t>(kCloudMinY + 4, static_cast<int16_t>(ground - kCloudTopPad));
+}
+
+int16_t topHalfMaxY(uint16_t screenH) {
+    return static_cast<int16_t>((screenH / 2U) - 1U);
+}
+
+int16_t cloudSpawnMaxTopY(uint16_t screenH, int16_t ground, int16_t cloudH) {
+    const int16_t fromGround = static_cast<int16_t>(cloudMaxY(ground) - cloudH);
+    const int16_t fromTopHalf = static_cast<int16_t>(topHalfMaxY(screenH) - cloudH);
+    return max<int16_t>(kCloudMinY, min<int16_t>(fromGround, fromTopHalf));
+}
+
+int16_t cloudSizeLiftPx(int16_t cloudH) {
+    const int16_t clamped = constrain(cloudH, kCloudSmallestH, kCloudLargestH);
+    return static_cast<int16_t>((clamped - kCloudSmallestH) * kCloudSizeLiftScale);
+}
+
+int16_t cloudSpawnMaxTopYForAsset(uint16_t screenH, int16_t ground, const BitmapAsset& cloud) {
+    const int16_t base = cloudSpawnMaxTopY(screenH, ground, cloud.h);
+    return max<int16_t>(kCloudMinY, static_cast<int16_t>(base - cloudSizeLiftPx(cloud.h)));
+}
+
+int16_t starSpawnMaxTopY(uint16_t screenH, int16_t ground) {
+    const int16_t skyBottom = max<int16_t>(kSkyTopY + 16, static_cast<int16_t>(ground - kSkyBottomPad));
+    return min<int16_t>(skyBottom, topHalfMaxY(screenH));
+}
+
+int16_t starMorphNeighborType(uint8_t baseType, uint8_t blinkMode) {
+    if (kStarTypeCount <= 1U) {
+        return baseType;
+    }
+
+    if (baseType == 0U) {
+        return 1;
+    }
+    if (baseType >= (kStarTypeCount - 1U)) {
+        return static_cast<int16_t>(kStarTypeCount - 2U);
+    }
+
+    // Keep variety by allowing stars to pulse up or down one size tier.
+    return (blinkMode == kStarBlinkModeMorph)
+        ? static_cast<int16_t>(baseType + 1U)
+        : static_cast<int16_t>(baseType - 1U);
+}
+
+void starPlacementBoundsForType(uint8_t type, uint8_t blinkMode, int16_t* outW, int16_t* outH) {
+    const BitmapAsset& base = starAsset(type);
+    const uint8_t neighborType = static_cast<uint8_t>(starMorphNeighborType(type, blinkMode));
+    const BitmapAsset& neighbor = starAsset(neighborType);
+
+    if (outW != nullptr) {
+        *outW = max<int16_t>(base.w, neighbor.w);
+    }
+    if (outH != nullptr) {
+        *outH = max<int16_t>(base.h, neighbor.h);
+    }
+}
+
+int16_t starSizeLiftPx(int16_t starH) {
+    const int16_t clamped = constrain(starH, kStarSmallestH, kStarLargestH);
+    return static_cast<int16_t>((clamped - kStarSmallestH) * kStarSizeLiftScale);
+}
+
+int16_t starSpawnMaxTopYForType(uint16_t screenH, int16_t ground, uint8_t type, uint8_t blinkMode) {
+    const int16_t base = starSpawnMaxTopY(screenH, ground);
+    int16_t boundW = 0;
+    int16_t boundH = 0;
+    starPlacementBoundsForType(type, blinkMode, &boundW, &boundH);
+    (void)boundW;
+    return max<int16_t>(kSkyTopY + boundH, static_cast<int16_t>(base - starSizeLiftPx(boundH)));
 }
 
 int16_t skyBottomY(int16_t ground) {
@@ -223,13 +402,17 @@ bool intersectsCactus(int16_t dinoY,
            (dinoTop < ground);
 }
 
+// Draws a monochrome bitmap with transparent background, using the sprite's current ink color. Returns the number of pixels drawn.
 int32_t drawDitheredBitmap(TFT_eSprite& spr,
                            int16_t x,
                            int16_t y,
                            const unsigned char* bitmap,
                            int16_t w,
                            int16_t h,
-                           uint32_t phase) {
+                           uint32_t phase,
+                           bool invertBits = false,
+                           bool grayDither = false) {
+    (void)phase;
     if (bitmap == nullptr || w <= 0 || h <= 0) {
         return 0;
     }
@@ -240,21 +423,65 @@ int32_t drawDitheredBitmap(TFT_eSprite& spr,
         for (int16_t px = 0; px < w; ++px) {
             const int16_t byteIndex = static_cast<int16_t>(py * rowBytes + (px / 8));
             const uint8_t bits = pgm_read_byte(bitmap + byteIndex);
-            if ((bits & static_cast<uint8_t>(0x80U >> (px & 7))) == 0U) {
+            const bool bitSet = (bits & static_cast<uint8_t>(0x80U >> (px & 7))) != 0U;
+            const bool shouldDraw = invertBits ? !bitSet : bitSet;
+            if (!shouldDraw) {
                 continue;
             }
 
-            // Checkerboard fill approximates gray on the 1-bit sprite.
-            if (((x + px + y + py + static_cast<int16_t>(phase)) & 1) == 0) {
-                spr.drawPixel(static_cast<int16_t>(x + px), static_cast<int16_t>(y + py), kSpriteInk);
-                ++drawnPixels;
+            // Static checkerboard keeps gray clouds stable without per-frame flicker.
+            if (grayDither && (((x + px) ^ (y + py)) & 0x01) != 0) {
+                continue;
             }
+
+            spr.drawPixel(static_cast<int16_t>(x + px), static_cast<int16_t>(y + py), kSpriteInk);
+            ++drawnPixels;
         }
     }
     return drawnPixels;
 }
 
+// Draws a monochrome bitmap with transparent background, using the sprite's current ink color for unset bits. Returns the number of pixels drawn.
+int32_t drawInvertedDitheredBitmap(TFT_eSprite& spr,
+                                   int16_t x,
+                                   int16_t y,
+                                   const unsigned char* bitmap,
+                                   int16_t w,
+                                   int16_t h,
+                                   uint32_t phase) {
+    (void)phase;
+    if (bitmap == nullptr || w <= 0 || h <= 0) {
+        return 0;
+    }
+
+    const int16_t rowBytes = static_cast<int16_t>((w + 7) / 8);
+    int32_t drawnPixels = 0;
+    for (int16_t py = 0; py < h; ++py) {
+        for (int16_t px = 0; px < w; ++px) {
+            const int16_t byteIndex = static_cast<int16_t>(py * rowBytes + (px / 8));
+            const uint8_t bits = pgm_read_byte(bitmap + byteIndex);
+            const bool bitSet = (bits & static_cast<uint8_t>(0x80U >> (px & 7))) != 0U;
+            if (bitSet) {
+                continue;
+            }
+
+            spr.drawPixel(static_cast<int16_t>(x + px), static_cast<int16_t>(y + py), kSpriteInk);
+            ++drawnPixels;
+        }
+    }
+    return drawnPixels;
+}
+
+void drawInvertedBitmap(TFT_eSprite& spr,
+                        int16_t x,
+                        int16_t y,
+                        const unsigned char* bitmap,
+                        int16_t w,
+                        int16_t h,
+                        uint8_t color);
+
 void drawFallbackCloud(TFT_eSprite& spr, int16_t x, int16_t y, int16_t w, int16_t h, uint32_t phase) {
+    (void)phase;
     const int16_t r = max<int16_t>(2, h / 3);
     spr.fillCircle(static_cast<int16_t>(x + w / 4), static_cast<int16_t>(y + h / 2), r, kSpriteInk);
     spr.fillCircle(static_cast<int16_t>(x + w / 2), static_cast<int16_t>(y + h / 3), static_cast<int16_t>(r + 1), kSpriteInk);
@@ -263,14 +490,6 @@ void drawFallbackCloud(TFT_eSprite& spr, int16_t x, int16_t y, int16_t w, int16_
                  static_cast<int16_t>(max<int16_t>(2, w - 4)),
                  static_cast<int16_t>(max<int16_t>(1, h / 3)),
                  kSpriteInk);
-
-    for (int16_t py = 0; py < h; ++py) {
-        for (int16_t px = 0; px < w; ++px) {
-            if (((x + px + y + py + static_cast<int16_t>(phase)) & 1) != 0) {
-                spr.drawPixel(static_cast<int16_t>(x + px), static_cast<int16_t>(y + py), kSpritePaper);
-            }
-        }
-    }
 }
 
 void drawCloudSprite(TFT_eSprite& spr,
@@ -282,6 +501,22 @@ void drawCloudSprite(TFT_eSprite& spr,
     if (drawn == 0) {
         drawFallbackCloud(spr, x, y, cloud.w, cloud.h, phase);
     }
+}
+
+void drawMountainSprite(TFT_eSprite& spr,
+                        int16_t x,
+                        int16_t y,
+                        const BitmapAsset& mountain,
+                        uint32_t phase) {
+    drawDitheredBitmap(spr,
+                       x,
+                       y,
+                       mountain.data,
+                       mountain.w,
+                       mountain.h,
+                       phase,
+                       true,
+                       true);
 }
 
 void drawInvertedBitmap(TFT_eSprite& spr,
@@ -367,31 +602,36 @@ bool canPlaceStarAt(const LCD2DinoGameState& state,
                     int16_t ground,
                     int16_t minY,
                     int16_t maxY,
-                    uint8_t type) {
-    const BitmapAsset& star = starAsset(type);
+                    uint8_t type,
+                    uint8_t blinkMode) {
+    int16_t starW = 0;
+    int16_t starH = 0;
+    starPlacementBoundsForType(type, blinkMode, &starW, &starH);
     if (x < kStarPlacementInset || y < minY) {
         return false;
     }
 
-    const int16_t maxX = static_cast<int16_t>(screenW - star.w - kStarPlacementInset);
+    const int16_t maxX = static_cast<int16_t>(screenW - starW - kStarPlacementInset);
     if (x > maxX || y > maxY) {
         return false;
     }
 
-    if (overlapsMoonOrHudTiles(x, y, star.w, star.h, screenW, ground)) {
+    if (overlapsMoonOrHudTiles(x, y, starW, starH, screenW, ground)) {
         return false;
     }
 
     for (uint8_t i = 0; i < placedCount; ++i) {
-        const BitmapAsset& other = starAsset(state.starType[i]);
+        int16_t otherW = 0;
+        int16_t otherH = 0;
+        starPlacementBoundsForType(state.starType[i], state.starBlinkMode[i], &otherW, &otherH);
         if (overlapsWithPad(x,
                             y,
-                            star.w,
-                            star.h,
+                            starW,
+                            starH,
                             state.starX[i],
                             state.starY[i],
-                            other.w,
-                            other.h,
+                            otherW,
+                            otherH,
                             kStarMinGapPx)) {
             return false;
         }
@@ -407,16 +647,19 @@ bool findStarPlacement(const LCD2DinoGameState& state,
                        int16_t minY,
                        int16_t maxY,
                        uint8_t type,
+                       uint8_t blinkMode,
                        int16_t* outX,
                        int16_t* outY) {
     if (outX == nullptr || outY == nullptr) {
         return false;
     }
 
-    const BitmapAsset& star = starAsset(type);
+    int16_t starW = 0;
+    int16_t starH = 0;
+    starPlacementBoundsForType(type, blinkMode, &starW, &starH);
     const int16_t minX = kStarPlacementInset;
-    const int16_t maxX = static_cast<int16_t>(screenW - star.w - kStarPlacementInset);
-    const int16_t localMaxY = static_cast<int16_t>(maxY - star.h);
+    const int16_t maxX = static_cast<int16_t>(screenW - starW - kStarPlacementInset);
+    const int16_t localMaxY = static_cast<int16_t>(maxY - starH);
     if (maxX < minX || localMaxY < minY) {
         return false;
     }
@@ -424,16 +667,36 @@ bool findStarPlacement(const LCD2DinoGameState& state,
     for (uint8_t tries = 0; tries < kStarPlacementMaxTries; ++tries) {
         const int16_t candX = static_cast<int16_t>(random(minX, maxX + 1));
         const int16_t candY = static_cast<int16_t>(random(minY, localMaxY + 1));
-        if (canPlaceStarAt(state, placedCount, candX, candY, screenW, ground, minY, localMaxY, type)) {
+        if (canPlaceStarAt(state,
+                           placedCount,
+                           candX,
+                           candY,
+                           screenW,
+                           ground,
+                           minY,
+                           localMaxY,
+                           type,
+                           blinkMode)) {
             *outX = candX;
             *outY = candY;
             return true;
         }
     }
 
-    for (int16_t candY = minY; candY <= localMaxY; candY += 2) {
-        for (int16_t candX = minX; candX <= maxX; candX += 2) {
-            if (canPlaceStarAt(state, placedCount, candX, candY, screenW, ground, minY, localMaxY, type)) {
+    int16_t scanBudget = 200;
+    for (int16_t candY = minY; candY <= localMaxY && scanBudget > 0; candY += 2) {
+        for (int16_t candX = minX; candX <= maxX && scanBudget > 0; candX += 2) {
+            --scanBudget;
+            if (canPlaceStarAt(state,
+                               placedCount,
+                               candX,
+                               candY,
+                               screenW,
+                               ground,
+                               minY,
+                               localMaxY,
+                               type,
+                               blinkMode)) {
                 *outX = candX;
                 *outY = candY;
                 return true;
@@ -648,16 +911,18 @@ void seedGroundProfile(LCD2DinoGameState& state) {
 void seedStars(LCD2DinoGameState& state, uint16_t width, uint16_t height, uint32_t nowMs) {
     const int16_t screenW = static_cast<int16_t>(width);
     const int16_t ground = groundY(height);
-    const int16_t maxY = skyBottomY(ground);
     const int16_t minY = kSkyTopY;
 
     for (uint8_t i = 0; i < LCD2DinoGameState::kStarCount; ++i) {
         state.starType[i] = randomStarType();
         state.starTwinkle[i] = static_cast<uint8_t>(random(24));
+        state.starBlinkMode[i] = static_cast<uint8_t>((random(100) < 40) ? kStarBlinkModeMorph : kStarBlinkModeOnOff);
         state.starLifetimeSec[i] = randomStarLifetimeSec();
         state.starBlinkFrequencySec[i] = randomStarBlinkFrequencySec();
         state.starActivationStartMs[i] = nowMs;
         state.starIsActivated[i] = false;
+
+        const int16_t maxY = starSpawnMaxTopYForType(height, ground, state.starType[i], state.starBlinkMode[i]);
 
         int16_t starX = kStarPlacementInset;
         int16_t starY = minY;
@@ -668,6 +933,7 @@ void seedStars(LCD2DinoGameState& state, uint16_t width, uint16_t height, uint32
                                                     minY,
                                                     maxY,
                                                     state.starType[i],
+                                                    state.starBlinkMode[i],
                                                     &starX,
                                                     &starY);
         if (!hasPlacement) {
@@ -690,18 +956,276 @@ void seedStars(LCD2DinoGameState& state, uint16_t width, uint16_t height, uint32
     }
 }
 
-void seedClouds(LCD2DinoGameState& state, uint16_t width, uint16_t height) {
+uint8_t pickBalancedCloudType(const LCD2DinoGameState& state,
+                               uint8_t replaceIndex,
+                               bool isNight,
+                               uint8_t cloudCount) {
+    uint8_t counts[kCloudTypeCount] = {0};
+    for (uint8_t i = 0; i < cloudCount; ++i) {
+        if (i == replaceIndex) {
+            continue;
+        }
+        const uint8_t type = (state.cloudType[i] < kCloudTypeCount) ? state.cloudType[i] : 0;
+        if ((isNight && type > 1U) || (!isNight && type < 2U)) {
+            continue;
+        }
+        ++counts[type];
+    }
+
+    uint8_t minCount = 0xFFU;
+    const uint8_t* pool = cloudTypePool(isNight);
+    const uint8_t poolCount = cloudTypePoolSize(isNight);
+    for (uint8_t i = 0; i < poolCount; ++i) {
+        minCount = min<uint8_t>(minCount, counts[pool[i]]);
+    }
+
+    uint8_t candidates[kCloudTypeCount];
+    uint8_t candidateCount = 0;
+    for (uint8_t i = 0; i < poolCount; ++i) {
+        const uint8_t type = pool[i];
+        if (counts[type] == minCount) {
+            candidates[candidateCount++] = type;
+        }
+    }
+
+    if (candidateCount == 0) {
+        return randomCloudType(isNight);
+    }
+    return candidates[static_cast<uint8_t>(random(candidateCount))];
+}
+
+int8_t pickCloudDirection(const LCD2DinoGameState& state,
+                            uint8_t replaceIndex,
+                            uint8_t cloudCount) {
+    uint8_t leftCount = 0;
+    uint8_t rightCount = 0;
+    for (uint8_t i = 0; i < cloudCount; ++i) {
+        if (i == replaceIndex) {
+            continue;
+        }
+        if (state.cloudSpeed[i] < 0) {
+            ++leftCount;
+        } else {
+            ++rightCount;
+        }
+    }
+
+    if (leftCount == 0) {
+        return -1;
+    }
+    if (rightCount == 0) {
+        return 1;
+    }
+    return (random(2) == 0) ? -1 : 1;
+}
+
+void seedClouds(LCD2DinoGameState& state, uint16_t width, uint16_t height, bool isNight) {
     const int16_t screenW = static_cast<int16_t>(width);
     const int16_t ground = groundY(height);
-    const int16_t maxY = cloudMaxY(ground);
+    const uint8_t* pool = cloudTypePool(isNight);
+    const uint8_t poolCount = cloudTypePoolSize(isNight);
+    const uint8_t typeOffset = static_cast<uint8_t>(random(poolCount));
+    const uint8_t cloudCount = maxClouds(isNight);
+    const int16_t span = max<int16_t>(1, screenW / cloudCount);
 
-    for (uint8_t i = 0; i < LCD2DinoGameState::kMaxClouds; ++i) {
-        state.cloudType[i] = randomCloudType();
-        state.cloudSpeed[i] = randomCloudSpeed();
-        state.cloudY[i] = static_cast<int16_t>(random(kCloudMinY, maxY + 1));
+    for (uint8_t i = 0; i < cloudCount; ++i) {
+        state.cloudType[i] = pool[(typeOffset + i) % poolCount];
+        const BitmapAsset& cloud = cloudAsset(state.cloudType[i]);
+        const int16_t maxY = cloudSpawnMaxTopYForAsset(height, ground, cloud);
+        state.cloudY[i] = (maxY > kCloudMinY)
+            ? static_cast<int16_t>(random(kCloudMinY, maxY + 1))
+            : kCloudMinY;
 
-        const int16_t span = max<int16_t>(1, screenW / LCD2DinoGameState::kMaxClouds);
+        const int8_t dir = (i & 0x01U) == 0U ? -1 : 1;
+        state.cloudSpeed[i] = randomCloudSignedSpeed(dir);
         state.cloudX[i] = static_cast<int16_t>(i * span + random(span));
+    }
+
+    // Keep inactive cloud slots stable and off-screen so they don't affect logic
+    for (uint8_t i = cloudCount; i < LCD2DinoGameState::kMaxClouds; ++i) {
+        state.cloudType[i] = 0;
+        state.cloudSpeed[i] = 0;
+        state.cloudX[i] = -1000;
+        state.cloudY[i] = 0;
+    }
+}
+
+uint32_t nextBirdSpawnDelayMs() {
+    return static_cast<uint32_t>(random(kBirdSpawnMinDelayMs, kBirdSpawnMaxDelayMs + 1U));
+}
+
+uint8_t activeBirdCount(const LCD2DinoGameState& state) {
+    uint8_t active = 0;
+    for (uint8_t i = 0; i < LCD2DinoGameState::kMaxBirds; ++i) {
+        if (state.birdActive[i]) {
+            ++active;
+        }
+    }
+    return active;
+}
+
+int16_t birdAltitudeMinY() {
+    const int16_t tallestHalf = static_cast<int16_t>(max<int16_t>(kBirdDefsFwd[1].h, kBirdDefsRev[1].h) / 2);
+    return static_cast<int16_t>(kBirdAltitudeMarginTop + tallestHalf);
+}
+
+int16_t birdAltitudeMaxY(uint16_t height, int16_t ground) {
+    const int16_t tallestHalf = static_cast<int16_t>(max<int16_t>(kBirdDefsFwd[1].h, kBirdDefsRev[1].h) / 2);
+    const int16_t dinoHead = static_cast<int16_t>(ground - kDinoH);
+    const int16_t topHalfLimit = static_cast<int16_t>(topHalfMaxY(height) - tallestHalf - kBirdAltitudeMarginBottom);
+    const int16_t dinoHeadLimit = static_cast<int16_t>(dinoHead - 8);
+    return min<int16_t>(topHalfLimit, dinoHeadLimit);
+}
+
+int16_t birdTopY(const LCD2DinoGameState& state, uint8_t birdIndex) {
+    const BitmapAsset& frame = birdAsset(state.birdFrame[birdIndex], state.birdSpeed[birdIndex]);
+    return static_cast<int16_t>(state.birdAltitude[birdIndex] - (frame.h / 2));
+}
+
+int16_t birdStepSpeed(int8_t baseSpeed) {
+    const int16_t sign = (baseSpeed < 0) ? -1 : 1;
+    const int16_t magnitude = abs(static_cast<int16_t>(baseSpeed));
+    const int16_t scaled = static_cast<int16_t>((magnitude * kBirdSpeedPercent + 50) / 100);
+    return static_cast<int16_t>(sign * max<int16_t>(1, scaled));
+}
+
+void clearBird(LCD2DinoGameState& state, uint8_t birdIndex) {
+    state.birdActive[birdIndex] = false;
+    state.birdBlinking[birdIndex] = false;
+    state.birdBlinkTicksLeft[birdIndex] = 0;
+    state.birdFrame[birdIndex] = 0;
+    state.birdFlapStep[birdIndex] = 0;
+    state.birdFlapBurstsLeft[birdIndex] = 0;
+}
+
+void resetBirds(LCD2DinoGameState& state, uint16_t width, uint16_t height, uint32_t nowMs) {
+    (void)width;
+    (void)height;
+    for (uint8_t i = 0; i < LCD2DinoGameState::kMaxBirds; ++i) {
+        state.birdX[i] = 0;
+        state.birdAltitude[i] = 0;
+        state.birdSpeed[i] = 0;
+        state.birdNextAnimMs[i] = nowMs;
+        state.birdBlinkNextMs[i] = nowMs;
+        clearBird(state, i);
+    }
+    state.nextBirdSpawnMs = nowMs + nextBirdSpawnDelayMs();
+}
+
+void spawnBirdAtSlot(LCD2DinoGameState& state,
+                     uint8_t birdIndex,
+                     int16_t screenW,
+                     uint16_t height,
+                     int16_t ground,
+                     uint32_t nowMs) {
+    const int16_t minAltitude = birdAltitudeMinY();
+    const int16_t maxAltitude = birdAltitudeMaxY(height, ground);
+    if (maxAltitude <= minAltitude) {
+        clearBird(state, birdIndex);
+        return;
+    }
+
+    const int8_t direction = (random(2) == 0) ? -1 : 1;
+    const int8_t speedMag = static_cast<int8_t>(random(2, 4));
+    state.birdSpeed[birdIndex] = static_cast<int8_t>(direction * speedMag);
+    state.birdAltitude[birdIndex] = static_cast<int16_t>(random(minAltitude, maxAltitude + 1));
+    state.birdFrame[birdIndex] = 0;
+    state.birdFlapStep[birdIndex] = 0;
+    state.birdFlapBurstsLeft[birdIndex] = 2;
+    state.birdBlinking[birdIndex] = false;
+    state.birdBlinkTicksLeft[birdIndex] = 0;
+    state.birdBlinkNextMs[birdIndex] = nowMs;
+    state.birdNextAnimMs[birdIndex] = nowMs +
+        static_cast<uint32_t>(random(kBirdGlideBeforeFlapMinMs, kBirdGlideBeforeFlapMaxMs + 1U));
+
+    const BitmapAsset& frame = birdAsset(0, state.birdSpeed[birdIndex]);
+    if (state.birdSpeed[birdIndex] < 0) {
+        state.birdX[birdIndex] = static_cast<int16_t>(screenW + random(kCloudRespawnMinOffset, kCloudRespawnMaxOffset + 1));
+    } else {
+        state.birdX[birdIndex] = static_cast<int16_t>(-frame.w - random(kCloudRespawnMinOffset, kCloudRespawnMaxOffset + 1));
+    }
+    state.birdActive[birdIndex] = true;
+}
+
+void maybeSpawnBird(LCD2DinoGameState& state,
+                    uint16_t width,
+                    uint16_t height,
+                    int16_t ground,
+                    uint32_t nowMs) {
+    if (activeBirdCount(state) >= LCD2DinoGameState::kMaxBirds ||
+        static_cast<int32_t>(nowMs - state.nextBirdSpawnMs) < 0) {
+        return;
+    }
+
+    uint8_t slot = LCD2DinoGameState::kMaxBirds;
+    for (uint8_t i = 0; i < LCD2DinoGameState::kMaxBirds; ++i) {
+        if (!state.birdActive[i]) {
+            slot = i;
+            break;
+        }
+    }
+
+    if (slot < LCD2DinoGameState::kMaxBirds) {
+        spawnBirdAtSlot(state, slot, static_cast<int16_t>(width), height, ground, nowMs);
+    }
+    state.nextBirdSpawnMs = nowMs + nextBirdSpawnDelayMs();
+}
+
+void tickBirds(LCD2DinoGameState& state, uint16_t width, uint16_t height, int16_t ground, uint32_t nowMs) {
+    maybeSpawnBird(state, width, height, ground, nowMs);
+
+    static const uint8_t flapSeq[6] = {1, 2, 0, 1, 2, 0};
+    for (uint8_t i = 0; i < LCD2DinoGameState::kMaxBirds; ++i) {
+        if (!state.birdActive[i]) {
+            continue;
+        }
+
+        state.birdX[i] = static_cast<int16_t>(state.birdX[i] + birdStepSpeed(state.birdSpeed[i]));
+        const BitmapAsset& frame = birdAsset(state.birdFrame[i], state.birdSpeed[i]);
+        if ((state.birdSpeed[i] < 0 && state.birdX[i] + frame.w < 0) ||
+            (state.birdSpeed[i] > 0 && state.birdX[i] > static_cast<int16_t>(width))) {
+            clearBird(state, i);
+            continue;
+        }
+
+        if (state.birdBlinking[i]) {
+            if (static_cast<int32_t>(nowMs - state.birdBlinkNextMs[i]) >= 0) {
+                state.birdBlinkNextMs[i] = nowMs + kBirdHitBlinkStepMs;
+                if (state.birdBlinkTicksLeft[i] > 0) {
+                    --state.birdBlinkTicksLeft[i];
+                }
+                if (state.birdBlinkTicksLeft[i] == 0) {
+                    clearBird(state, i);
+                }
+            }
+            continue;
+        }
+
+        if (state.birdFlapStep[i] == 0) {
+            state.birdFrame[i] = 0;
+            if (state.birdFlapBurstsLeft[i] > 0 && static_cast<int32_t>(nowMs - state.birdNextAnimMs[i]) >= 0) {
+                state.birdFlapStep[i] = 1;
+                state.birdFrame[i] = flapSeq[0];
+                state.birdNextAnimMs[i] = nowMs + kBirdFlapStepMs;
+            }
+            continue;
+        }
+
+        if (static_cast<int32_t>(nowMs - state.birdNextAnimMs[i]) >= 0) {
+            ++state.birdFlapStep[i];
+            if (state.birdFlapStep[i] <= 6) {
+                state.birdFrame[i] = flapSeq[state.birdFlapStep[i] - 1U];
+                state.birdNextAnimMs[i] = nowMs + kBirdFlapStepMs;
+            } else {
+                state.birdFlapStep[i] = 0;
+                state.birdFrame[i] = 0;
+                if (state.birdFlapBurstsLeft[i] > 0) {
+                    --state.birdFlapBurstsLeft[i];
+                }
+                state.birdNextAnimMs[i] = nowMs +
+                    static_cast<uint32_t>(random(kBirdGlideBeforeFlapMinMs, kBirdGlideBeforeFlapMaxMs + 1U));
+            }
+        }
     }
 }
 
@@ -712,10 +1236,10 @@ void tickSky(LCD2DinoGameState& state, uint16_t width, uint16_t height, uint32_t
 
     state.isNight = !state.isNight;
     state.nextSkyToggleMs = nowMs + nextSkyToggleDelayMs();
+    seedClouds(state, width, height, state.isNight);
     if (state.isNight) {
         seedStars(state, width, height, nowMs);
-    } else {
-        seedClouds(state, width, height);
+        resetBirds(state, width, height, nowMs);
     }
 }
 
@@ -748,24 +1272,117 @@ void tickStars(LCD2DinoGameState& state, uint32_t nowMs) {
     }
 }
 
-void tickClouds(LCD2DinoGameState& state, int16_t screenW, int16_t ground) {
-    const int16_t maxY = cloudMaxY(ground);
-    for (uint8_t i = 0; i < LCD2DinoGameState::kMaxClouds; ++i) {
+void tickClouds(LCD2DinoGameState& state, int16_t screenW, uint16_t screenH, int16_t ground, bool isNight) {
+    const uint8_t cloudCount = maxClouds(isNight);
+    for (uint8_t i = 0; i < cloudCount; ++i) {
         const BitmapAsset& cloud = cloudAsset(state.cloudType[i]);
-        const int16_t speed = max<int16_t>(1, state.cloudSpeed[i]);
-        state.cloudX[i] = static_cast<int16_t>(state.cloudX[i] - speed);
+        state.cloudX[i] = static_cast<int16_t>(state.cloudX[i] + state.cloudSpeed[i]);
 
-        if (state.cloudX[i] + cloud.w < 0) {
-            state.cloudType[i] = randomCloudType();
-            state.cloudSpeed[i] = randomCloudSpeed();
+        const bool offLeft = (state.cloudSpeed[i] < 0) && (state.cloudX[i] + cloud.w < 0);
+        const bool offRight = (state.cloudSpeed[i] > 0) && (state.cloudX[i] > screenW);
+        if (offLeft || offRight) {
+            state.cloudType[i] = pickBalancedCloudType(state, i, isNight, cloudCount);
+            const int8_t direction = pickCloudDirection(state, i, cloudCount);
+            state.cloudSpeed[i] = randomCloudSignedSpeed(direction);
+
             const BitmapAsset& respawnCloud = cloudAsset(state.cloudType[i]);
-            state.cloudX[i] = static_cast<int16_t>(screenW + random(kCloudRespawnMinOffset, kCloudRespawnMaxOffset + 1));
-            state.cloudY[i] = static_cast<int16_t>(random(kCloudMinY, maxY + 1));
+            const int16_t maxY = cloudSpawnMaxTopYForAsset(screenH, ground, respawnCloud);
+            state.cloudY[i] = (maxY > kCloudMinY)
+                ? static_cast<int16_t>(random(kCloudMinY, maxY + 1))
+                : kCloudMinY;
 
-            if (state.cloudX[i] + respawnCloud.w < screenW) {
-                state.cloudX[i] = static_cast<int16_t>(screenW + kCloudRespawnMinOffset);
+            const int16_t offset = static_cast<int16_t>(random(kCloudRespawnMinOffset, kCloudRespawnMaxOffset + 1));
+            if (state.cloudSpeed[i] < 0) {
+                state.cloudX[i] = static_cast<int16_t>(screenW + offset);
+            } else {
+                state.cloudX[i] = static_cast<int16_t>(-respawnCloud.w - offset);
             }
         }
+    }
+}
+
+void drawDayMountains(TFT_eSprite& spr, int16_t screenW, int16_t ground, uint32_t phase) {
+    const int32_t scrollPx = static_cast<int32_t>(phase / kMountainScrollDiv);
+    const int16_t step = kMountainStepPx;
+    const int16_t offset = static_cast<int16_t>(scrollPx % step);
+    const uint8_t cycle = static_cast<uint8_t>((scrollPx / step) % kMountainTypeCount);
+
+    uint8_t visibleCount = 0;
+    for (int16_t lane = 0; lane < kMountainTrackCount; ++lane) {
+        const int16_t x = static_cast<int16_t>(lane * step - offset);
+        const uint8_t type = static_cast<uint8_t>((cycle + lane) % kMountainTypeCount);
+        const BitmapAsset& mountain = mountainAsset(type);
+        if (x + mountain.w <= 0 || x >= screenW) {
+            continue;
+        }
+        ++visibleCount;
+    }
+
+    // Keep only 3-4 mountains visible; the rest stay in the off-screen ring buffer.
+    const uint8_t targetVisible = (visibleCount <= kMountainVisibleMin) ? kMountainVisibleMin : kMountainVisibleMax;
+    uint8_t drawnCount = 0;
+
+    for (int16_t lane = 0; lane < kMountainTrackCount; ++lane) {
+        if (drawnCount >= targetVisible) {
+            break;
+        }
+
+        const int16_t x = static_cast<int16_t>(lane * step - offset);
+        const uint8_t type = static_cast<uint8_t>((cycle + lane) % kMountainTypeCount);
+        const BitmapAsset& mountain = mountainAsset(type);
+        if (x + mountain.w <= 0 || x >= screenW) {
+            continue;
+        }
+
+        const int16_t laneJitter = static_cast<int16_t>((lane * 3) % (kMountainLaneDepthJitterPx + 1));
+        const int16_t y = static_cast<int16_t>(ground - kMountainBackLiftPx - laneJitter - mountain.h);
+        drawMountainSprite(spr, x, y, mountain, phase + static_cast<uint32_t>(lane * 11));
+        ++drawnCount;
+    }
+}
+
+void drawCloudLayer(const LCD2DinoGameState& state, TFT_eSprite& spr, uint32_t phase) {
+    const uint8_t cloudCount = maxClouds(state.isNight);
+    for (uint8_t i = 0; i < cloudCount; ++i) {
+        const uint8_t type = state.cloudType[i];
+        const BitmapAsset& cloud = cloudAsset(type);
+
+        // cloud_0 and cloud_1 are stored inverted (0=ink).
+        if (type == 0U || type == 1U) {
+            drawDitheredBitmap(spr,
+                              state.cloudX[i],
+                              state.cloudY[i],
+                              cloud.data,
+                              cloud.w,
+                              cloud.h,
+                              phase + i,
+                              true,
+                              true);
+        } else if (cloudUsesSolidInvertedInk(type)) {
+            drawInvertedBitmap(spr, state.cloudX[i], state.cloudY[i], cloud.data, cloud.w, cloud.h, kSpriteInk);
+        } else {
+            drawCloudSprite(spr, state.cloudX[i], state.cloudY[i], cloud, phase + i);
+        }
+    }
+}
+
+void drawBirds(const LCD2DinoGameState& state, TFT_eSprite& spr) {
+    for (uint8_t i = 0; i < LCD2DinoGameState::kMaxBirds; ++i) {
+        if (!state.birdActive[i]) {
+            continue;
+        }
+        if (state.birdBlinking[i] && ((state.birdBlinkTicksLeft[i] & 0x01U) != 0U)) {
+            continue;
+        }
+
+        const BitmapAsset& bird = birdAsset(state.birdFrame[i], state.birdSpeed[i]);
+        drawInvertedBitmap(spr,
+                           state.birdX[i],
+                           birdTopY(state, i),
+                           bird.data,
+                           bird.w,
+                           bird.h,
+                           kSpriteInk);
     }
 }
 
@@ -775,68 +1392,40 @@ void drawSkyScene(const LCD2DinoGameState& state,
                   int16_t ground,
                   uint32_t nowMs) {
     if (state.isNight) {
-        uint8_t drawnStars = 0;
-        bool starDrawn[LCD2DinoGameState::kStarCount] = {false};
-
         for (uint8_t i = 0; i < LCD2DinoGameState::kStarCount; ++i) {
             if (!state.starIsActivated[i]) {
                 continue;
             }
 
-            const uint32_t blinkMs = static_cast<uint32_t>(state.starBlinkFrequencySec[i]) * 1000U;
-            if (blinkMs == 0U) {
-                continue;
-            }
-
-            const uint32_t elapsedMs = nowMs - state.starActivationStartMs[i];
-            const uint32_t blinkPhase = elapsedMs + static_cast<uint32_t>(state.starTwinkle[i]) * 251U;
-            const uint32_t phaseBucket = blinkPhase / blinkMs;
-            if ((phaseBucket & 0x01U) != 0U) {
-                continue;
-            }
-
-            uint8_t type = state.starType[i];
-            if ((((phaseBucket / 2U) & 0x01U) != 0U) && kStarTypeCount > 1U) {
-                type = static_cast<uint8_t>((type + 1U) % kStarTypeCount);
-            }
-
-            const BitmapAsset& star = starAsset(type);
+            const uint32_t twinkleOffset = static_cast<uint32_t>(state.starTwinkle[i]) * 31U;
+            const uint32_t elapsedMs = nowMs - state.starActivationStartMs[i] + twinkleOffset;
+            const uint8_t triPhase = static_cast<uint8_t>((elapsedMs / kStarBlinkStepMs) % 3U);
+            const uint8_t baseType = (state.starType[i] < kStarTypeCount) ? state.starType[i] : 0U;
+            const uint8_t neighborType = static_cast<uint8_t>(starMorphNeighborType(baseType, state.starBlinkMode[i]));
+            const uint8_t drawType = (triPhase == 1U) ? neighborType : baseType;
+            const BitmapAsset& star = starAsset(drawType);
             drawInvertedBitmap(spr, state.starX[i], state.starY[i], star.data, star.w, star.h, kSpriteInk);
-            starDrawn[i] = true;
-            ++drawnStars;
-        }
-
-        // Guarantee at least 4 visible stars even when several stars are in their OFF blink phase.
-        if (drawnStars < kStarMinActiveCount) {
-            for (uint8_t i = 0; i < LCD2DinoGameState::kStarCount && drawnStars < kStarMinActiveCount; ++i) {
-                if (!state.starIsActivated[i] || starDrawn[i]) {
-                    continue;
-                }
-
-                const BitmapAsset& star = starAsset(state.starType[i]);
-                drawInvertedBitmap(spr, state.starX[i], state.starY[i], star.data, star.w, star.h, kSpriteInk);
-                starDrawn[i] = true;
-                ++drawnStars;
-            }
         }
 
         const int16_t moonX = static_cast<int16_t>(screenW - kMoonAsset.w - kSkyObjectRightPad);
         const int16_t moonY = min<int16_t>(kMoonY, static_cast<int16_t>(skyBottomY(ground) - kMoonAsset.h));
         drawInvertedBitmap(spr, moonX, moonY, kMoonAsset.data, kMoonAsset.w, kMoonAsset.h, kSpriteInk);
+        drawCloudLayer(state, spr, nowMs);
         return;
     }
+
+    drawDayMountains(spr, screenW, ground, state.score);
 
     const int16_t sunX = static_cast<int16_t>(screenW - kSunAsset.w - kSunRightPad);
     const int16_t sunY = min<int16_t>(kSunY, static_cast<int16_t>(skyBottomY(ground) - kSunAsset.h));
     // Alternate between sun[] and sun_1[] for a sunburst animation
     const BitmapAsset& sunFrame = ((state.score / kSunAnimPeriod) & 0x01U) ? kSunAltAsset : kSunAsset;
-    drawInvertedBitmap(spr, sunX, sunY, sunFrame.data, sunFrame.w, sunFrame.h, kSpriteInk);
+    // Sun is dithered for a gray appearance during daytime
+    drawDitheredBitmap(spr, sunX, sunY, sunFrame.data, sunFrame.w, sunFrame.h, state.score, true, true);
 
-    for (uint8_t i = 0; i < LCD2DinoGameState::kMaxClouds; ++i) {
-        const BitmapAsset& cloud = cloudAsset(state.cloudType[i]);
-        // Clouds use transparent background: draw only cloud pixels, no rectangle fill.
-        drawCloudSprite(spr, state.cloudX[i], state.cloudY[i], cloud, state.score + i);
-    }
+    drawCloudLayer(state, spr, state.score);
+
+    drawBirds(state, spr);
 }
 
 void drawGroundEffect(const LCD2DinoGameState& state,
@@ -890,7 +1479,8 @@ void reset(LCD2DinoGameState& state, uint16_t width, uint16_t height, uint32_t n
     state.jumpRequested = false;
     state.finished = false;
     state.isNight = true;
-    seedClouds(state, width, height);
+    seedClouds(state, width, height, state.isNight);
+    resetBirds(state, width, height, nowMs);
 }
 
 void tick(LCD2DinoGameState& state, uint16_t width, uint16_t height, uint32_t nowMs) {
@@ -902,13 +1492,17 @@ void tick(LCD2DinoGameState& state, uint16_t width, uint16_t height, uint32_t no
     const int16_t ground = groundY(height);
 
     tickSky(state, width, height, nowMs);
+    if (!state.isNight || ((state.score % kNightCloudTickDiv) == 0U)) {
+        tickClouds(state, screenW, height, ground, state.isNight);
+    }
     if (state.isNight) {
         tickStars(state, nowMs);
     } else {
-        tickClouds(state, screenW, ground);
+        tickBirds(state, width, height, ground, nowMs);
     }
 
     if (state.dead) {
+        state.jumpRequested = false;
         if ((nowMs - state.deadStartMs) >= kGameDeadPauseMs) {
             if (state.lives == 0) {
                 state.finished = true;
@@ -990,6 +1584,31 @@ void tick(LCD2DinoGameState& state, uint16_t width, uint16_t height, uint32_t no
     const int16_t dinoRight = static_cast<int16_t>(kDinoX + kDinoW - 3);
     const int16_t dinoTop = static_cast<int16_t>(state.dinoY - kDinoH + 4);
     const int16_t dinoBottom = static_cast<int16_t>(state.dinoY - 4);
+
+    if (!state.onGround) {
+        for (uint8_t i = 0; i < LCD2DinoGameState::kMaxBirds; ++i) {
+            if (!state.birdActive[i] || state.birdBlinking[i]) {
+                continue;
+            }
+
+            const BitmapAsset& bird = birdAsset(state.birdFrame[i], state.birdSpeed[i]);
+            const int16_t birdLeft = static_cast<int16_t>(state.birdX[i] + 4);
+            const int16_t birdRight = static_cast<int16_t>(state.birdX[i] + bird.w - 4);
+            const int16_t birdTop = static_cast<int16_t>(birdTopY(state, i) + 2);
+            const int16_t birdBottom = static_cast<int16_t>(birdTop + bird.h - 4);
+
+            if (dinoRight > birdLeft && dinoLeft < birdRight &&
+                dinoBottom > birdTop && dinoTop < birdBottom) {
+                state.birdBlinking[i] = true;
+                state.birdBlinkTicksLeft[i] = kBirdHitBlinkSteps;
+                state.birdBlinkNextMs[i] = nowMs + kBirdHitBlinkStepMs;
+                state.birdFrame[i] = 0;
+                state.birdFlapStep[i] = 0;
+                state.birdFlapBurstsLeft[i] = 0;
+                state.score += 18;
+            }
+        }
+    }
 
     for (uint8_t i = 0; i < LCD2DinoGameState::kMaxObs; ++i) {
         if (!state.obsActive[i]) {

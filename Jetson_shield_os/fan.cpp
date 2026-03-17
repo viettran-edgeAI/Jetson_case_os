@@ -5,9 +5,11 @@
 Fan::Fan(int pwmPin)
     : _pwmPin(pwmPin),
       _frequency(jetson_cfg::kFanPwmFrequencyHz),
-    _currentSpeed(0),
-    _state(jetson_cfg::SystemState::POWER_OFF),
-    _alertMask(0) {}
+            _currentSpeed(0),
+            _isRunning(false),
+            _lastToggleMs(0),
+            _state(jetson_cfg::SystemState::POWER_OFF),
+            _alertMask(0) {}
 
 void Fan::init(int pwmPin, uint32_t frequency, float initialDuty) {
     _pwmPin = pwmPin;
@@ -21,11 +23,21 @@ void Fan::init(int pwmPin, uint32_t frequency, float initialDuty) {
     pwm_config.counter_mode = MCPWM_UP_COUNTER;
     pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
     mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);
+
+    _isRunning = (_currentSpeed > 0);
+    _lastToggleMs = millis();
 }
 
 void Fan::setSpeed(uint8_t percent) {
+    const bool wasRunning = (_currentSpeed > 0);
     _currentSpeed = clampDuty(percent);
     mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, (float)_currentSpeed);
+
+    const bool nowRunning = (_currentSpeed > 0);
+    if (wasRunning != nowRunning) {
+        _lastToggleMs = millis();
+    }
+    _isRunning = nowRunning;
 }
 
 void Fan::onStateChange(jetson_cfg::SystemState newState) {
@@ -41,8 +53,20 @@ void Fan::onAlertChange(uint8_t alertMask) {
 
 void Fan::update(float jetsonTempC, bool hasJetsonThermalMetric) {
     const uint8_t duty = computeAutoDuty(jetsonTempC, hasJetsonThermalMetric);
+    const uint32_t nowMs = millis();
+    const bool highTemperatureAlert = (_alertMask & jetson_cfg::kAlertMaskHighTemperature) != 0;
+
     if (duty == 0) {
+        if (_isRunning && !highTemperatureAlert &&
+            (nowMs - _lastToggleMs) < jetson_cfg::kFanMinOnDwellMs) {
+            return;
+        }
         stop();
+        return;
+    }
+
+    if (!_isRunning && !highTemperatureAlert &&
+        (nowMs - _lastToggleMs) < jetson_cfg::kFanMinOffDwellMs) {
         return;
     }
 

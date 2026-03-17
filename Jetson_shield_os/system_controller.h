@@ -53,6 +53,8 @@ private:
 	TaskHandle_t _taskLed;
 	TaskHandle_t _taskLcd2;
 	SemaphoreHandle_t _lcd2Mutex;
+	bool _lcd2StateSyncPending;
+	jetson_cfg::SystemState _lcd2PendingState;
 
 	volatile jetson_cfg::SystemState _state;
 	bool _tasksStarted;
@@ -61,6 +63,9 @@ private:
 	bool _hasSensorReading;
 	float _sensorTempC;
 	float _sensorHumidityPercent;
+	uint32_t _lastSensorValidMs;
+	uint8_t _sensorConsecutiveFailures;
+	int16_t _lastLedBrightnessPercent;
 	volatile uint32_t _lastSerial2ActivityMs;
 	uint32_t _lastSerial1StatsMs;
 	uint32_t _lastBootStartMs;
@@ -97,6 +102,11 @@ private:
 	void updateAlerts();
 	void applyPolicies();
 	void updateDisplays(uint32_t nowMs);
+	void handleSensorFreshness(uint32_t nowMs);
+	void syncPendingLcd2State();
+	int16_t readLcd2RequestedLedBrightnessPercent();
+	bool tryLockLcd2();
+	void unlockLcd2();
 
 	void controllerTaskLoop();
 	void serial1TaskLoop();

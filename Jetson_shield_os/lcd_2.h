@@ -54,6 +54,7 @@ private:
 
     SystemState _state;
     bool _driverReady;
+    bool _degradedMode;
     bool _visible;
     bool _layoutDrawn;
     bool _dirty;
@@ -211,6 +212,7 @@ private:
     void updateSliderFromTouch(const Rect& sliderRect, int16_t touchY, int16_t& targetValue);
     int16_t filterTouchY(int16_t touchY);
     int16_t historyValueAt(const int16_t* history, uint16_t orderedIndex) const;
+    void drawDegradedModeNotice(uint32_t nowMs, const char* reason);
 };
 
 #endif // LCD_2_H

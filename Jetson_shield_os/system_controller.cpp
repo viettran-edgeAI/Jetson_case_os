@@ -9,6 +9,7 @@ namespace {
 constexpr TickType_t kSerialPollDelayTicks = pdMS_TO_TICKS(jetson_cfg::kSerialPollDelayMs);
 constexpr TickType_t kSerialIdleDelayTicks = pdMS_TO_TICKS(jetson_cfg::kSerialIdleDelayMs);
 constexpr TickType_t kLedTaskDelayTicks = pdMS_TO_TICKS(jetson_cfg::kLedUpdatePeriodMs);
+constexpr TickType_t kLcd2MutexTimeoutTicks = pdMS_TO_TICKS(jetson_cfg::kLcd2MutexTimeoutMs);
 
 constexpr BaseType_t kIoCore = 0;
 constexpr BaseType_t kControlCore = 1;
@@ -71,12 +72,17 @@ SystemController::SystemController()
       _taskLed(nullptr),
         _taskLcd2(nullptr),
         _lcd2Mutex(nullptr),
+            _lcd2StateSyncPending(false),
+            _lcd2PendingState(jetson_cfg::SystemState::POWER_OFF),
       _state(jetson_cfg::SystemState::POWER_OFF),
       _tasksStarted(false),
       _latestStats(),
       _hasSensorReading(false),
       _sensorTempC(NAN),
       _sensorHumidityPercent(NAN),
+    _lastSensorValidMs(0),
+    _sensorConsecutiveFailures(0),
+    _lastLedBrightnessPercent(map(jetson_cfg::kLedBrightness, 0, 255, 0, 100)),
             _lastSerial2ActivityMs(0),
             _lastSerial1StatsMs(0),
             _lastBootStartMs(0),
@@ -125,6 +131,10 @@ void SystemController::init() {
 
     _lastSerial2ActivityMs = 0;
     _lastSerial1StatsMs = 0;
+    _lastSensorValidMs = 0;
+    _sensorConsecutiveFailures = 0;
+    _lcd2StateSyncPending = false;
+    _lcd2PendingState = jetson_cfg::SystemState::POWER_OFF;
     _lastBootStartMs = 0;
     _lastBootCompleteMs = 0;
     _lastShutdownIndicatorMs = 0;
@@ -271,7 +281,10 @@ void SystemController::handleMessage(const ControllerMessage& message) {
             _latestStats = message.stats;
             _lastSerial1StatsMs = message.timestampMs;
 
-            _lcd2.pushMetrics(makeLcd2MetricsFrame());
+            if (tryLockLcd2()) {
+                _lcd2.pushMetrics(makeLcd2MetricsFrame());
+                unlockLcd2();
+            }
 
             reconcileStateFromSerialEvidence(message.timestampMs);
             if (_state == jetson_cfg::SystemState::RUNNING && _bootCompletionPending) {
@@ -284,7 +297,10 @@ void SystemController::handleMessage(const ControllerMessage& message) {
             _lastSerial2ActivityMs = message.timestampMs;
             if (message.line[0] != '\0') {
                 _lcd1.showKernelLine(message.line);
-                _lcd2.pushBootKernelLine(message.line);
+                if (tryLockLcd2()) {
+                    _lcd2.pushBootKernelLine(message.line);
+                    unlockLcd2();
+                }
             }
             reconcileStateFromSerialEvidence(message.timestampMs);
             break;
@@ -295,7 +311,11 @@ void SystemController::handleMessage(const ControllerMessage& message) {
                 _sensorTempC = message.sensorTempC;
                 _sensorHumidityPercent = message.sensorHumidityPercent;
                 _hasSensorReading = true;
+                _sensorConsecutiveFailures = 0;
+                _lastSensorValidMs = message.timestampMs;
                 syncLcd2Environment();
+            } else if (_sensorConsecutiveFailures < 255U) {
+                ++_sensorConsecutiveFailures;
             }
             break;
         }
@@ -501,23 +521,58 @@ LCD2Dashboard::MetricsFrame SystemController::makeLcd2MetricsFrame() const {
     return frame;
 }
 
+bool SystemController::tryLockLcd2() {
+    if (_lcd2Mutex == nullptr) {
+        return true;
+    }
+
+    return (xSemaphoreTake(_lcd2Mutex, kLcd2MutexTimeoutTicks) == pdTRUE);
+}
+
+void SystemController::unlockLcd2() {
+    if (_lcd2Mutex != nullptr) {
+        xSemaphoreGive(_lcd2Mutex);
+    }
+}
+
+int16_t SystemController::readLcd2RequestedLedBrightnessPercent() {
+    if (tryLockLcd2()) {
+        _lastLedBrightnessPercent = _lcd2.getRequestedLedBrightnessPercent();
+        unlockLcd2();
+    }
+
+    return _lastLedBrightnessPercent;
+}
+
 void SystemController::syncLcd2Metrics() {
+    if (!tryLockLcd2()) {
+        return;
+    }
+
     if (!hasValidJetsonMetric()) {
         _lcd2.clearMetrics();
+        unlockLcd2();
         return;
     }
 
     _lcd2.pushMetrics(makeLcd2MetricsFrame());
+    unlockLcd2();
 }
 
 void SystemController::syncLcd2Environment() {
     const float boxTemp = _hasSensorReading ? _sensorTempC : -1.0f;
     const float boxHumidity = _hasSensorReading ? _sensorHumidityPercent : -1.0f;
+    if (!tryLockLcd2()) {
+        return;
+    }
+
     const int16_t ledBrightnessPercent = _lcd2.getRequestedLedBrightnessPercent();
+    _lastLedBrightnessPercent = ledBrightnessPercent;
     _lcd2.setEnvironment(boxTemp,
                          boxHumidity,
                          static_cast<int16_t>(_fan.getSpeed()),
                          ledBrightnessPercent);
+    unlockLcd2();
 }
 
 uint8_t SystemController::buildAlertMask() const {
@@ -537,9 +592,10 @@ void SystemController::broadcastAlertMask(uint8_t alertMask) {
     _sensor.onAlertChange(alertMask);
     _led.onAlertChange(alertMask);
     _lcd1.onAlertChange(alertMask);
-        if (_lcd2Mutex != nullptr) { xSemaphoreTake(_lcd2Mutex, portMAX_DELAY); }
+    if (tryLockLcd2()) {
         _lcd2.onAlertChange(alertMask);
-        if (_lcd2Mutex != nullptr) { xSemaphoreGive(_lcd2Mutex); }
+        unlockLcd2();
+    }
 }
 
 void SystemController::setState(jetson_cfg::SystemState newState, const char* contextText) {
@@ -569,14 +625,20 @@ void SystemController::setState(jetson_cfg::SystemState newState, const char* co
     _sensor.onStateChange(newState);
     _led.onStateChange(newState);
     _lcd1.onStateChange(newState);
-        // Acquire mutex before calling lcd2 methods that access the TFT hardware
-        if (_lcd2Mutex != nullptr) { xSemaphoreTake(_lcd2Mutex, portMAX_DELAY); }
+    bool lcd2StateApplied = false;
+    if (tryLockLcd2()) {
         _lcd2.onStateChange(newState);
-        if (newState == jetson_cfg::SystemState::RUNNING) {
-            syncLcd2Environment();
-            syncLcd2Metrics();
-        }
-        if (_lcd2Mutex != nullptr) { xSemaphoreGive(_lcd2Mutex); }
+        unlockLcd2();
+        lcd2StateApplied = true;
+        _lcd2StateSyncPending = false;
+    } else {
+        _lcd2StateSyncPending = true;
+        _lcd2PendingState = newState;
+    }
+    if (lcd2StateApplied && newState == jetson_cfg::SystemState::RUNNING) {
+        syncLcd2Environment();
+        syncLcd2Metrics();
+    }
 
     if (!stateChanged) {
         if (newState != jetson_cfg::SystemState::RUNNING &&
@@ -639,7 +701,7 @@ void SystemController::updateAlerts() {
 }
 
 void SystemController::applyPolicies() {
-    const int16_t requestedBrightness = _lcd2.getRequestedLedBrightnessPercent();
+    const int16_t requestedBrightness = readLcd2RequestedLedBrightnessPercent();
     _led.setBrightness(static_cast<uint8_t>(map(requestedBrightness, 0, 100, 0, 255)));
 
     bool hasJetsonThermalMetric = false;
@@ -670,8 +732,50 @@ void SystemController::handleMetricStaleness(uint32_t nowMs) {
     _latestStats.cpuTempC = -1.0f;
     _latestStats.gpuTempC = -1.0f;
     _latestStats.powerMilliWatt = -1;
-    _lcd2.clearMetrics();
+    if (tryLockLcd2()) {
+        _lcd2.clearMetrics();
+        unlockLcd2();
+    }
     _lcd1.showBootMessage("Waiting stats");
+}
+
+void SystemController::handleSensorFreshness(uint32_t nowMs) {
+    if (!_hasSensorReading) {
+        return;
+    }
+
+    const bool staleByAge = (_lastSensorValidMs == 0U) ||
+                            ((nowMs - _lastSensorValidMs) >= jetson_cfg::kSensorFreshnessTimeoutMs);
+    const bool staleByFailures =
+        (_sensorConsecutiveFailures >= jetson_cfg::kSensorMaxConsecutiveFailures);
+    if (!staleByAge && !staleByFailures) {
+        return;
+    }
+
+    _hasSensorReading = false;
+    _sensorTempC = NAN;
+    _sensorHumidityPercent = NAN;
+    syncLcd2Environment();
+}
+
+void SystemController::syncPendingLcd2State() {
+    if (!_lcd2StateSyncPending) {
+        return;
+    }
+
+    if (!tryLockLcd2()) {
+        return;
+    }
+
+    const jetson_cfg::SystemState pendingState = _lcd2PendingState;
+    _lcd2.onStateChange(pendingState);
+    unlockLcd2();
+    _lcd2StateSyncPending = false;
+
+    if (pendingState == jetson_cfg::SystemState::RUNNING) {
+        syncLcd2Environment();
+        syncLcd2Metrics();
+    }
 }
 
 float SystemController::selectJetsonThermalMetric(bool& hasMetric) const {
@@ -707,6 +811,8 @@ void SystemController::controllerTaskLoop() {
         const uint32_t nowMs = millis();
         reconcileStateFromSerialEvidence(nowMs);
         handleMetricStaleness(nowMs);
+        handleSensorFreshness(nowMs);
+        syncPendingLcd2State();
         updateAlerts();
         applyPolicies();
         updateDisplays(nowMs);
@@ -745,6 +851,7 @@ void SystemController::serial2TaskLoop() {
     uint32_t lastTransitionMs = 0;
     uint32_t lastKernelLogPostMs = 0;
     KernelTransitionEvent lastTransition = KernelTransitionEvent::NONE;
+    uint8_t consecutiveStoppedLines = 0;
 
     for (;;) {
         if (!_jetson.readSerial2Line(line, sizeof(line))) {
@@ -759,12 +866,23 @@ void SystemController::serial2TaskLoop() {
         }
 
         const uint32_t now = millis();
-        _lastSerial2ActivityMs = now;
-        if (_state == jetson_cfg::SystemState::POWER_OFF && !isLikelyValidSerial2Line(line)) {
+        if (!isLikelyValidSerial2Line(line)) {
             continue;
         }
+        _lastSerial2ActivityMs = now;
 
-        const KernelTransitionEvent transition = JetsonSerial::detectKernelTransition(line);
+        KernelTransitionEvent transition = JetsonSerial::detectKernelTransition(line);
+        if (strstr(line, "Stopped") != nullptr) {
+            if (consecutiveStoppedLines < 255U) {
+                ++consecutiveStoppedLines;
+            }
+            if (consecutiveStoppedLines >= 2U && transition == KernelTransitionEvent::NONE) {
+                transition = KernelTransitionEvent::SHUTDOWN_OR_SUSPEND;
+            }
+        } else {
+            consecutiveStoppedLines = 0;
+        }
+
         const bool shouldPostKernelLog = ((now - lastKernelLogPostMs) >= jetson_cfg::kSerial2LogThrottleMs) ||
                                          (transition != KernelTransitionEvent::NONE);
         if (shouldPostKernelLog) {
@@ -865,7 +983,7 @@ void SystemController::taskLedEntry(void* arg) {
         constexpr TickType_t kPeriod = pdMS_TO_TICKS(16); // ~60 fps
         for (;;) {
             if (_lcd2Mutex != nullptr &&
-                xSemaphoreTake(_lcd2Mutex, pdMS_TO_TICKS(8)) == pdTRUE) {
+                xSemaphoreTake(_lcd2Mutex, kLcd2MutexTimeoutTicks) == pdTRUE) {
                 _lcd2.update(millis());
                 xSemaphoreGive(_lcd2Mutex);
             }

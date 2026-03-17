@@ -1,8 +1,8 @@
 # Jetson Shield OS - System Design Specification
 
 **Document ID:** JSOS-SDD-001  
-**Version:** 1.2  
-**Date:** 2026-03-15  
+**Version:** 1.3  
+**Date:** 2026-03-16  
 **Target Platform:** ESP32 Dev Module (Dual Core 240 MHz, 256 KB RAM, 2 MB Flash)
 
 ## 1. Purpose and Scope
@@ -296,3 +296,46 @@ A firmware baseline is deployment-ready when:
 - Add regression checks for LCD_2 touch calibration persistence across reset and firmware reload.
 - Add validation for LED brightness slider stability under press/drag/release interaction.
 - Add lightweight replay and display integration tests for UART state transitions and dashboard rendering.
+
+## 13. Reliability Hardening Update (2026-03-16)
+
+The following reliability fixes were implemented in the firmware codebase:
+
+1. LCD2 mutex timing is now bounded (no `portMAX_DELAY` in controller paths).
+  - Controller-side LCD2 accesses use bounded mutex waits and only unlock after successful lock acquisition.
+  - This prevents display-lock contention from stalling controller policy/state processing indefinitely.
+
+2. LCD2 synchronization is now consistent across tasks.
+  - Controller writes/reads to LCD2 shared state are lock-protected.
+  - Render task keeps lock ownership only for the update window.
+
+3. Fan anti-chatter dwell-time guards were added.
+  - Minimum ON dwell and OFF dwell windows reduce rapid toggling around threshold boundaries.
+
+4. LCD2 calibration init path is less blocking.
+  - Removed filesystem auto-format from the hot init path.
+  - Removed the fixed calibration intro delay before touch calibration begins.
+
+5. Sensor freshness protection was added.
+  - Controller now tracks last-valid sensor timestamp and consecutive read failures.
+  - Stale sensor values are aged out using timeout/failure thresholds.
+
+6. Serial overlength frame handling now has explicit overflow behavior.
+  - Overlong serial lines are dropped safely by entering discard-until-newline mode.
+  - Overflow counters are tracked for Serial1/Serial2 diagnostics.
+
+7. Dino game heavy compute bursts were bounded.
+  - Survival simulation frames, cluster search attempts, and star placement attempts are capped lower.
+  - Grid-search fallback uses a bounded budget to avoid long frame spikes.
+
+8. Serial2 plausibility filtering is applied before transition classification in all states.
+  - Malformed/noise lines are ignored globally, not only in `POWER_OFF`.
+
+9. LCD2 sprite init failures are handled explicitly.
+  - Dashboard enters a degraded mode with visible on-screen indicator when sprite allocation fails.
+
+10. POWER_OFF idle refresh cadence was tightened.
+  - Idle-screen refresh interval reduced to lower long static-image risk.
+
+11. Dino dead-state input buffering was fixed.
+  - Jump request is cleared during dead-state ticks to prevent buffered jump after respawn.

@@ -43,6 +43,8 @@ private:
     int      _pwmPin;
     uint32_t _frequency;
     uint8_t  _currentSpeed;
+    bool _isRunning;
+    uint32_t _lastToggleMs;
     jetson_cfg::SystemState _state;
     uint8_t _alertMask;
 };

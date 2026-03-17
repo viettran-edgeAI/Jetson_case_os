@@ -47,6 +47,9 @@ public:
     bool readSerial1Line(char* outLine, size_t outSize);
     bool readSerial2Line(char* outLine, size_t outSize);
 
+    uint32_t getSerial1OverflowCount() const { return _serial1OverflowCount; }
+    uint32_t getSerial2OverflowCount() const { return _serial2OverflowCount; }
+
     bool pollStats(JetsonStatsSnapshot& inOutStats, char* outLine = nullptr, size_t outLineSize = 0);
     bool pollKernelTransition(KernelTransitionEvent& outEvent, char* outLine = nullptr, size_t outLineSize = 0);
 
@@ -58,6 +61,8 @@ private:
                           char* buffer,
                           size_t bufferSize,
                           size_t& writeIndex,
+                          bool& discardUntilNewline,
+                          uint32_t& overflowCount,
                           char* outLine,
                           size_t outSize);
 
@@ -65,6 +70,10 @@ private:
     char _serial2Buffer[jetson_cfg::kSerial2LineMaxLen + 1];
     size_t _serial1Index;
     size_t _serial2Index;
+    bool _serial1DiscardUntilNewline;
+    bool _serial2DiscardUntilNewline;
+    uint32_t _serial1OverflowCount;
+    uint32_t _serial2OverflowCount;
     uint32_t _lastTransitionMs;
     KernelTransitionEvent _lastTransition;
 };

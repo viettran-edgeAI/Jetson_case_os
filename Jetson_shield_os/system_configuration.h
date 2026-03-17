@@ -49,9 +49,9 @@ static constexpr int kSerial2TxPin = 17;
 
 static constexpr size_t kSerial1LineMaxLen = 128;
 static constexpr size_t kSerial2LineMaxLen = 192;
-static constexpr uint32_t kSerialPollDelayMs = 20;
-static constexpr uint32_t kSerialIdleDelayMs = 60;
-static constexpr uint32_t kSerial2ProbeIntervalMs = 200;
+static constexpr uint32_t kSerialPollDelayMs = 10;
+static constexpr uint32_t kSerialIdleDelayMs = 30;
+static constexpr uint32_t kSerial2ProbeIntervalMs = 50;
 static constexpr uint32_t kSerial2TransitionDebounceMs = 50;
 static constexpr uint32_t kSerial2EvidenceWindowMs = 2500;
 static constexpr uint32_t kSerial2ShutdownQuietMs = 700;
@@ -61,10 +61,11 @@ static constexpr size_t kSerialNoiseMinLineLength = 6;
 static constexpr uint8_t kSerialNoiseMinAlphaChars = 2;
 
 static constexpr const char* kTokenBootStart = "Boot-mode";
-static constexpr const char* kTokenBootComplete = "login: ";
+static constexpr const char* kTokenBootComplete = "login:";
 static constexpr const char* kTokenShutdown = "Shutdown";
 static constexpr const char* kTokenSuspend = "Suspend";
 static constexpr const char* kTokenPowerOff = "ivc channel driver missing";
+static constexpr const char* kTokenPowerOffAlt = "Shutdown state requested";
 
 // ---------------------------- Message Queue ----------------------------
 static constexpr size_t kMessageQueueLength = 24;
@@ -79,6 +80,8 @@ static constexpr uint32_t kFanPwmFrequencyHz = 25000;
 static constexpr float kTempLowC = 40.0f;
 static constexpr float kTempHighC = 85.0f;
 static constexpr float kTempFanOffHysteresisC = 37.0f;
+static constexpr uint32_t kFanMinOnDwellMs = 3000;
+static constexpr uint32_t kFanMinOffDwellMs = 2000;
 
 static constexpr uint8_t kFanDutyMinPercent = 20;
 static constexpr uint8_t kFanDutyMaxPercent = 100;
@@ -100,6 +103,8 @@ static constexpr uint8_t kDhtPin = 13;
 static constexpr uint8_t kDhtType = DHT11;
 
 static constexpr uint32_t kSensorSamplePeriodMs = 2000;
+static constexpr uint32_t kSensorFreshnessTimeoutMs = 15000;
+static constexpr uint8_t kSensorMaxConsecutiveFailures = 5;
 static constexpr float kHumidityHighPercent = 75.0f;
 static constexpr float kHumidityRecoverPercent = 70.0f;
 
@@ -119,6 +124,7 @@ static constexpr uint16_t kLcd2Height = 240;
 static constexpr uint8_t kLcd2Rotation = 2; // vertical 
 static constexpr uint16_t kLcd2GraphPoints = 60;
 static constexpr uint32_t kLcd2RefreshPeriodMs = 1000;
+static constexpr uint32_t kLcd2MutexTimeoutMs = 4;
 static constexpr bool kLcd2ForceTouchCalibration = false;
 static constexpr const char* kLcd2TouchCalibrationFile = "/jsos_touch_cal.bin";
 

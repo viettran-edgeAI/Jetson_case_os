@@ -6,7 +6,8 @@
 
 struct LCD2DinoGameState {
     static constexpr uint8_t kMaxObs = 3;
-    static constexpr uint8_t kMaxClouds = 5;
+    static constexpr uint8_t kMaxClouds = 3;
+    static constexpr uint8_t kMaxBirds = 2;
     static constexpr uint8_t kGroundBumpCount = 32;
     static constexpr uint8_t kStarCount = 15;
 
@@ -27,9 +28,22 @@ struct LCD2DinoGameState {
     uint8_t starType[kStarCount];
     uint8_t starTwinkle[kStarCount];
     bool starIsActivated[kStarCount];
+    uint8_t starBlinkMode[kStarCount];
     uint8_t starLifetimeSec[kStarCount];
     uint8_t starBlinkFrequencySec[kStarCount];
     uint32_t starActivationStartMs[kStarCount];
+    int16_t birdX[kMaxBirds];
+    int16_t birdAltitude[kMaxBirds];
+    int8_t birdSpeed[kMaxBirds];
+    uint8_t birdFrame[kMaxBirds];
+    uint8_t birdFlapStep[kMaxBirds];
+    uint8_t birdFlapBurstsLeft[kMaxBirds];
+    bool birdActive[kMaxBirds];
+    bool birdBlinking[kMaxBirds];
+    uint8_t birdBlinkTicksLeft[kMaxBirds];
+    uint32_t birdNextAnimMs[kMaxBirds];
+    uint32_t birdBlinkNextMs[kMaxBirds];
+    uint32_t nextBirdSpawnMs;
     uint32_t score;
     uint8_t lives;
     int16_t speed;
