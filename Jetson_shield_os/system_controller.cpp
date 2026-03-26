@@ -295,6 +295,7 @@ void SystemController::handleMessage(const ControllerMessage& message) {
 
         case jetson_cfg::MessageType::KERNEL_LOG: {
             _lastSerial2ActivityMs = message.timestampMs;
+            reconcileStateFromSerialEvidence(message.timestampMs);
             if (message.line[0] != '\0') {
                 _lcd1.showKernelLine(message.line);
                 if (tryLockLcd2()) {
@@ -302,7 +303,6 @@ void SystemController::handleMessage(const ControllerMessage& message) {
                     unlockLcd2();
                 }
             }
-            reconcileStateFromSerialEvidence(message.timestampMs);
             break;
         }
 
@@ -353,7 +353,7 @@ void SystemController::handleMessage(const ControllerMessage& message) {
                 case KernelTransitionEvent::POWER_OFF_INDICATOR:
                     _lastPowerOffIndicatorMs = message.timestampMs;
                     _bootCompletionPending = false;
-                    _lcd1.showBootMessage("Power-off detected");
+                    _lcd1.showBootMessage("Shutting down");
                     break;
                 case KernelTransitionEvent::NONE:
                 default:
@@ -431,9 +431,7 @@ void SystemController::reconcileStateFromSerialEvidence(uint32_t nowMs) {
             contextText = "System Running";
         } else if (serial2Active || shutdownJustObserved) {
             desiredState = jetson_cfg::SystemState::SHUTTING_DOWN;
-            contextText = (_lastPowerOffIndicatorMs >= _lastShutdownIndicatorMs)
-                              ? "Power-off detected"
-                              : "Shutting down";
+            contextText = "Shutting down";
         } else {
             desiredState = jetson_cfg::SystemState::POWER_OFF;
             contextText = "POWER OFF";
@@ -441,9 +439,7 @@ void SystemController::reconcileStateFromSerialEvidence(uint32_t nowMs) {
     } else if (_state == jetson_cfg::SystemState::RUNNING) {
         if (shutdownActive) {
             desiredState = jetson_cfg::SystemState::SHUTTING_DOWN;
-            contextText = (_lastPowerOffIndicatorMs >= _lastShutdownIndicatorMs)
-                              ? "Power-off detected"
-                              : "Shutting down";
+            contextText = "Shutting down";
         } else if (serial1Active || serial2Active) {
             desiredState = jetson_cfg::SystemState::RUNNING;
             contextText = "System Running";
@@ -672,15 +668,15 @@ void SystemController::updateAlerts() {
     }
 
     bool nextHighHumidity = _highHumidityAlert;
-    if (_hasSensorReading) {
-        if (!_highHumidityAlert) {
-            if (_sensorHumidityPercent >= jetson_cfg::kHumidityHighPercent) {
-                nextHighHumidity = true;
-            }
-        } else {
-            if (_sensorHumidityPercent <= jetson_cfg::kHumidityRecoverPercent) {
-                nextHighHumidity = false;
-            }
+    if (!_hasSensorReading) {
+        nextHighHumidity = false;
+    } else if (!_highHumidityAlert) {
+        if (_sensorHumidityPercent >= jetson_cfg::kHumidityHighPercent) {
+            nextHighHumidity = true;
+        }
+    } else {
+        if (_sensorHumidityPercent <= jetson_cfg::kHumidityRecoverPercent) {
+            nextHighHumidity = false;
         }
     }
 
@@ -704,9 +700,14 @@ void SystemController::applyPolicies() {
     const int16_t requestedBrightness = readLcd2RequestedLedBrightnessPercent();
     _led.setBrightness(static_cast<uint8_t>(map(requestedBrightness, 0, 100, 0, 255)));
 
-    bool hasJetsonThermalMetric = false;
-    const float refTemp = selectJetsonThermalMetric(hasJetsonThermalMetric);
-    _fan.update(refTemp, hasJetsonThermalMetric);
+    if (_state == jetson_cfg::SystemState::POWER_OFF ||
+        _state == jetson_cfg::SystemState::SHUTTING_DOWN) {
+        _fan.stop();
+    } else {
+        bool hasJetsonThermalMetric = false;
+        const float refTemp = selectJetsonThermalMetric(hasJetsonThermalMetric);
+        _fan.update(refTemp, hasJetsonThermalMetric);
+    }
 
     syncLcd2Environment();
 }
@@ -856,8 +857,9 @@ void SystemController::serial2TaskLoop() {
     for (;;) {
         if (!_jetson.readSerial2Line(line, sizeof(line))) {
             if (_state == jetson_cfg::SystemState::BOOTING_ON ||
-                _state == jetson_cfg::SystemState::SHUTTING_DOWN ||
-                _state == jetson_cfg::SystemState::RUNNING) {
+                _state == jetson_cfg::SystemState::SHUTTING_DOWN) {
+                vTaskDelay(kSerialPollDelayTicks);
+            } else if (_state == jetson_cfg::SystemState::RUNNING) {
                 vTaskDelay(kSerialPollDelayTicks);
             } else {
                 vTaskDelay(pdMS_TO_TICKS(jetson_cfg::kSerial2ProbeIntervalMs));
@@ -883,7 +885,12 @@ void SystemController::serial2TaskLoop() {
             consecutiveStoppedLines = 0;
         }
 
-        const bool shouldPostKernelLog = ((now - lastKernelLogPostMs) >= jetson_cfg::kSerial2LogThrottleMs) ||
+        const bool isTransitionState = (_state == jetson_cfg::SystemState::BOOTING_ON ||
+                                        _state == jetson_cfg::SystemState::SHUTTING_DOWN);
+        const uint32_t logThrottleMs = isTransitionState
+                                           ? jetson_cfg::kSerial2TransitionLogThrottleMs
+                                           : jetson_cfg::kSerial2LogThrottleMs;
+        const bool shouldPostKernelLog = ((now - lastKernelLogPostMs) >= logThrottleMs) ||
                                          (transition != KernelTransitionEvent::NONE);
         if (shouldPostKernelLog) {
             ControllerMessage logMsg = {};

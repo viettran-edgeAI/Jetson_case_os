@@ -88,7 +88,8 @@ uint8_t Fan::computeAutoDuty(float tempC,
         return maxDuty;
     }
 
-    if (_state == jetson_cfg::SystemState::POWER_OFF) {
+    if (_state == jetson_cfg::SystemState::POWER_OFF ||
+        _state == jetson_cfg::SystemState::SHUTTING_DOWN) {
         return 0;
     }
 

@@ -54,8 +54,9 @@ static constexpr uint32_t kSerialIdleDelayMs = 30;
 static constexpr uint32_t kSerial2ProbeIntervalMs = 50;
 static constexpr uint32_t kSerial2TransitionDebounceMs = 50;
 static constexpr uint32_t kSerial2EvidenceWindowMs = 2500;
-static constexpr uint32_t kSerial2ShutdownQuietMs = 700;
+static constexpr uint32_t kSerial2ShutdownQuietMs = 1500;
 static constexpr uint32_t kSerial2LogThrottleMs = 50;
+static constexpr uint32_t kSerial2TransitionLogThrottleMs = 8;
 static constexpr uint32_t kSerial1StaleMs = 2500;
 static constexpr size_t kSerialNoiseMinLineLength = 6;
 static constexpr uint8_t kSerialNoiseMinAlphaChars = 2;
@@ -91,9 +92,9 @@ static constexpr uint8_t kLedPin = 14;
 static constexpr uint16_t kLedCount = 8;
 static constexpr uint8_t kLedBrightness = 51;
 
-static constexpr uint32_t kLedChangeIntervalMs = 4000;
-static constexpr uint32_t kLedTransitionTimeMs = 1000;
-static constexpr uint32_t kLedPaletteIntervalMs = 30000;
+static constexpr uint32_t kLedChangeIntervalMs = 10000;
+static constexpr uint32_t kLedTransitionTimeMs = 1500;
+static constexpr uint32_t kLedPaletteIntervalMs = 80000;
 static constexpr uint32_t kLedBlinkTransitionMs = 120;
 static constexpr uint8_t kLedPowerSignalBlinkCount = 2;
 static constexpr uint32_t kLedUpdatePeriodMs = 20;
@@ -105,8 +106,8 @@ static constexpr uint8_t kDhtType = DHT11;
 static constexpr uint32_t kSensorSamplePeriodMs = 2000;
 static constexpr uint32_t kSensorFreshnessTimeoutMs = 15000;
 static constexpr uint8_t kSensorMaxConsecutiveFailures = 5;
-static constexpr float kHumidityHighPercent = 75.0f;
-static constexpr float kHumidityRecoverPercent = 70.0f;
+static constexpr float kHumidityHighPercent = 88.0f;	// Threshold to trigger high humidity alert
+static constexpr float kHumidityRecoverPercent = 85.0f; 	// Threshold to clear high humidity alert
 
 // ---------------------------- LCD_1 (OLED) ----------------------------
 static constexpr uint16_t kLcd1Width = 128;

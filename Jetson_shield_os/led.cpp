@@ -91,11 +91,7 @@ void LEDController::onStateChange(jetson_cfg::SystemState newState) {
     const jetson_cfg::SystemState previous = state;
     state = newState;
 
-    if (newState == jetson_cfg::SystemState::POWER_OFF) {
-        setMode(LedMode::OFF);
-    } else {
-        setMode(LedMode::NORMAL);
-    }
+    setMode(LedMode::NORMAL);
 
     const bool enteringPowerTransition =
         (newState == jetson_cfg::SystemState::BOOTING_ON ||
@@ -147,7 +143,30 @@ void LEDController::setAlertActive(bool active) {
 void LEDController::updateNormal(unsigned long now) {
     if (paletteSize == 0) return;
 
-    if (now - lastPaletteChange >= paletteInterval) {
+    if (paletteSize == 1) {
+        applySolid(currentPalette[0]);
+        return;
+    }
+
+    const unsigned long segmentDuration =
+        (changeInterval > 0) ? changeInterval : 1UL;
+    const unsigned long blendDuration =
+        (transitionTime > segmentDuration) ? segmentDuration : transitionTime;
+    const unsigned long holdDuration = segmentDuration - blendDuration;
+
+    uint32_t currentRenderedColor = currentColor;
+    const unsigned long elapsedSinceSegmentStart = now - lastTransitionStart;
+    if (blendDuration > 0 && elapsedSinceSegmentStart >= holdDuration) {
+        const unsigned long blendElapsed = elapsedSinceSegmentStart - holdDuration;
+        if (blendElapsed < blendDuration) {
+            const float fraction = float(blendElapsed) / float(blendDuration);
+            currentRenderedColor = blendColor(currentColor, targetColor, fraction);
+        } else {
+            currentRenderedColor = targetColor;
+        }
+    }
+
+    if (paletteInterval > 0 && now - lastPaletteChange >= paletteInterval) {
         lastPaletteChange = now;
         size_t idx = 0;
         for (size_t i = 0; i < PALETTE_COUNT; i++) {
@@ -158,25 +177,31 @@ void LEDController::updateNormal(unsigned long now) {
         }
         idx = (idx + 1) % PALETTE_COUNT;
         setPalette(palettes[idx], PALETTE_SIZE);
-        currentColorIndex = 0;
-        currentColor = currentPalette[0];
-        targetColor = currentPalette[1 % paletteSize];
+
+        // Continue smoothly into the next palette without skipping index 1.
+        currentColorIndex = static_cast<int>((paletteSize > 0) ? (paletteSize - 1) : 0);
+        currentColor = currentRenderedColor;
+        targetColor = currentPalette[0];
         lastTransitionStart = now;
-        applySolid(currentColor);
     }
 
-    if (transitionTime > 0 && now - lastTransitionStart < transitionTime) {
-        float fraction = float(now - lastTransitionStart) / float(transitionTime);
-        uint32_t blended = blendColor(currentColor, targetColor, fraction);
-        applySolid(blended);
-    } else if (now - lastTransitionStart < changeInterval) {
-        applySolid(targetColor);
-    } else {
+    unsigned long elapsed = now - lastTransitionStart;
+
+    while (elapsed >= segmentDuration) {
         currentColor = targetColor;
         currentColorIndex = (currentColorIndex + 1) % paletteSize;
         targetColor = currentPalette[(currentColorIndex + 1) % paletteSize];
-        lastTransitionStart = now;
+        lastTransitionStart += segmentDuration;
+        elapsed -= segmentDuration;
+    }
+
+    if (blendDuration == 0 || elapsed < holdDuration) {
         applySolid(currentColor);
+    } else {
+        const unsigned long blendElapsed = elapsed - holdDuration;
+        const float fraction = float(blendElapsed) / float(blendDuration);
+        uint32_t blended = blendColor(currentColor, targetColor, fraction);
+        applySolid(blended);
     }
 }
 

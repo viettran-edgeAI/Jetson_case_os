@@ -5,6 +5,14 @@
 #include <Wire.h>
 #include <new>
 
+namespace {
+
+bool hasHighHumidityAlert(uint8_t alertMask) {
+    return (alertMask & jetson_cfg::kAlertMaskHighHumidity) != 0;
+}
+
+} // namespace
+
 LCD1::LCD1()
     : _display(nullptr),
       _width(DEFAULT_WIDTH),
@@ -116,6 +124,8 @@ void LCD1::onStateChange(SystemState newState) {
 
 void LCD1::onAlertChange(uint8_t alertMask) {
     _alertMask = alertMask;
+    _bootViewDirty = true;
+    _lastRunningFrameMs = 0;
 }
 
 void LCD1::startWelcomeEffect() {
@@ -174,6 +184,10 @@ void LCD1::showPowerOffEffect(const char* label, uint32_t nowMs) {
         _display->drawLine(drop.x, drop.y, drop.x, drop.y + drop.length, SSD1306_WHITE);
     }
 
+    if (hasHighHumidityAlert(_alertMask)) {
+        drawCenteredTextLine(0, "HIGH HUMIDITY", 21);
+    }
+
     drawCenteredTextLine(static_cast<int16_t>(_height > 16 ? (_height - 10) : 0), _statusLabel, 16);
     _display->display();
 }
@@ -191,6 +205,9 @@ void LCD1::showRunningIdle(uint32_t nowMs) {
 
     _display->clearDisplay();
     drawNvidiaLogo();
+    if (hasHighHumidityAlert(_alertMask)) {
+        drawCenteredTextLine(24, "HIGH HUMIDITY", 21);
+    }
     _display->display();
 }
 
@@ -304,6 +321,10 @@ void LCD1::drawTransitionView() {
 
     if (_kernelLine[0] != '\0') {
         drawTextBlock(0, 10, _kernelLine, 21, 2);
+    }
+
+    if (hasHighHumidityAlert(_alertMask)) {
+        drawCenteredTextLine(24, "HIGH HUMIDITY", 21);
     }
 
     _display->display();

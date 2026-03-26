@@ -103,6 +103,8 @@ private:
     bool           _gameTouched;
     int16_t        _gameTouchX;
     int16_t        _gameTouchY;
+    bool           _powerOffSettingsOpen;
+    bool           _powerOffSettingsTouchActive;
 
     ActiveControl _activeControl;
 
@@ -138,6 +140,12 @@ private:
     void initGameButtons();
     void updatePowerOff(uint32_t nowMs);
     void drawPowerOffIdle();
+    void drawPowerOffSettingsButton(bool active);
+    void drawPowerOffSettingsPanel();
+    Rect makePowerOffSettingsButtonRect() const;
+    Rect makePowerOffSettingsPanelRect() const;
+    Rect makePowerOffSettingsSliderRect(const Rect& panelRect) const;
+    void updatePowerOffSliderFromTouch(const Rect& sliderRect, int16_t touchY, int16_t& targetValue);
     void drawGameMenu();
     void enterDinoGame();
     void tickDinoGame(uint32_t nowMs);

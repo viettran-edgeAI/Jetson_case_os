@@ -37,7 +37,7 @@ constexpr int16_t kGraphAxisLabelWidth = 20;
 constexpr int16_t kGraphInfoWidth = 42;
 constexpr uint32_t kTouchScanPeriodMs = 20;
 constexpr uint32_t kTouchUiRefreshPeriodMs = 33;
-constexpr uint32_t kBootLogRefreshPeriodMs = 40;
+constexpr uint32_t kBootLogRefreshPeriodMs = 16;
 constexpr uint32_t kTouchCalibrationMagic = 0x4A534F53UL;
 constexpr uint8_t kTouchCalibrationVersion = 1;
 constexpr uint8_t kBootSpriteInk = 1;
@@ -72,6 +72,43 @@ constexpr int16_t kGameOverMenuH  = 74;
 constexpr int16_t kGameOverBtnW   = 72;
 constexpr int16_t kGameOverBtnH   = 20;
 constexpr int16_t kGameOverBtnPad = 8;
+constexpr int16_t kSettingsBtnSize = 28;
+constexpr int16_t kSettingsBtnMargin = 6;
+constexpr int16_t kSettingsIconSize = 16;
+constexpr int16_t kPowerOffSettingsPanelW = 30;
+constexpr int16_t kPowerOffSettingsTopGap = 2;
+constexpr int16_t kPowerOffSliderTopInset = 2;
+constexpr int16_t kPowerOffSliderBottomInset = 3;
+
+// 16x16 monochrome settings-gear icon (MSB first per row), authored for standby UI.
+const uint8_t kSettingsIconBitmap[] PROGMEM = {
+  0xfe, 0x7f, 0xfc, 0x3f, 0xc4, 0x23, 0xc0, 0x03, 0xc0, 0x03, 0xe3, 0xc7,
+  0x87, 0xe1, 0x06, 0x60, 0x06, 0x60, 0x87, 0xe1, 0xe3, 0xc7, 0xc0, 0x03,
+  0xc0, 0x03, 0xc4, 0x23, 0xfc, 0x3f, 0xfe, 0x7f
+};
+
+void drawInvertedBitmap(TFT_eSPI& tft,
+                         int16_t x,
+                         int16_t y,
+                         const uint8_t* bitmap,
+                         uint8_t width,
+                         uint8_t height,
+                         uint16_t color) {
+    if (bitmap == nullptr || width == 0 || height == 0) {
+        return;
+    }
+
+    const uint8_t bytesPerRow = static_cast<uint8_t>((width + 7) / 8);
+    for (uint8_t row = 0; row < height; ++row) {
+        for (uint8_t col = 0; col < width; ++col) {
+            const uint16_t index = static_cast<uint16_t>(row) * bytesPerRow + (col / 8);
+            const uint8_t bits = pgm_read_byte(bitmap + index);
+            if ((bits & static_cast<uint8_t>(0x80U >> (col % 8))) == 0U) {
+                tft.drawPixel(static_cast<int16_t>(x + col), static_cast<int16_t>(y + row), color);
+            }
+        }
+    }
+}
 
 void drawPowerOffButton(TFT_eSPI& tft,
                         int16_t x,
@@ -321,6 +358,25 @@ uint16_t alertColor(uint8_t alertMask) {
     return (alertMask == 0U) ? kStatusOkColor : kStatusAlertColor;
 }
 
+bool hasHighHumidityAlert(uint8_t alertMask) {
+    return (alertMask & jetson_cfg::kAlertMaskHighHumidity) != 0;
+}
+
+void drawHumidityWarningBanner(TFT_eSPI& tft, uint16_t width, uint16_t height) {
+    const int16_t bannerHeight = 12;
+    const int16_t y = (height > bannerHeight) ? static_cast<int16_t>(height - bannerHeight) : 0;
+
+    tft.fillRect(0, y, width, bannerHeight, TFT_BLACK);
+    tft.drawFastHLine(0, y, width, TFT_DARKGREY);
+    tft.setTextColor(TFT_RED, TFT_BLACK);
+    tft.setTextDatum(MC_DATUM);
+    tft.drawString("HIGH HUMIDITY WARNING",
+                   static_cast<int16_t>(width / 2),
+                   static_cast<int16_t>(y + (bannerHeight / 2)),
+                   1);
+    tft.setTextDatum(TL_DATUM);
+}
+
 void formatUsageValue(int16_t value, char* buffer, size_t bufferSize) {
     if (!isUsageValid(value)) {
         snprintf(buffer, bufferSize, "--%%");
@@ -464,7 +520,9 @@ LCD2Dashboard::LCD2Dashboard()
     _gamePrevTouched(false),
     _gameTouched(false),
     _gameTouchX(0),
-    _gameTouchY(0) {
+    _gameTouchY(0),
+    _powerOffSettingsOpen(false),
+    _powerOffSettingsTouchActive(false) {
     for (uint16_t i = 0; i < HISTORY_POINTS; ++i) {
         _cpuHistory[i] = -1;
       _gpuHistory[i] = -1;
@@ -770,6 +828,8 @@ void LCD2Dashboard::init(uint16_t width, uint16_t height, uint8_t rotation) {
     _gameTouched = false;
     _gameTouchX = 0;
     _gameTouchY = 0;
+    _powerOffSettingsOpen = false;
+    _powerOffSettingsTouchActive = false;
     resetHistory();
     clearBootLog();
 }
@@ -831,6 +891,8 @@ void LCD2Dashboard::onStateChange(SystemState newState) {
             _idleDrawn = false;
             _gamePrevTouched = false;
             _gameTouched = false;
+            _powerOffSettingsOpen = false;
+            _powerOffSettingsTouchActive = false;
         }
 
         resetHistory();
@@ -840,6 +902,8 @@ void LCD2Dashboard::onStateChange(SystemState newState) {
         _touchDown = false;
         _touchSampleCount = 0;
         _activeControl = ActiveControl::NONE;
+        _powerOffSettingsOpen = false;
+        _powerOffSettingsTouchActive = false;
         _bootLogHead = 0;
         _bootLogCount = 0;
         _lastBootRefreshMs = 0;
@@ -863,6 +927,8 @@ void LCD2Dashboard::onStateChange(SystemState newState) {
     _touchDown = false;
     _touchSampleCount = 0;
     _activeControl = ActiveControl::NONE;
+    _powerOffSettingsOpen = false;
+    _powerOffSettingsTouchActive = false;
     _lastBootRefreshMs = 0;
     _lastRefreshMs = 0;
 }
@@ -1133,6 +1199,9 @@ void LCD2Dashboard::update(uint32_t nowMs) {
 
         _lastBootRefreshMs = nowMs;
         drawBootLogView();
+        if (hasHighHumidityAlert(_alertMask)) {
+            drawHumidityWarningBanner(_tft, _width, _height);
+        }
         _dirty = false;
         return;
     }
@@ -1170,6 +1239,10 @@ void LCD2Dashboard::update(uint32_t nowMs) {
         drawDynamic();
     } else {
         drawNoData();
+    }
+
+    if (hasHighHumidityAlert(_alertMask)) {
+        drawHumidityWarningBanner(_tft, _width, _height);
     }
 
     _dirty = false;
@@ -1770,6 +1843,118 @@ void LCD2Dashboard::initGameButtons() {
                           TFT_DARKGREY, TFT_BLACK, TFT_LIGHTGREY, "EXIT", 1);
 }
 
+LCD2Dashboard::Rect LCD2Dashboard::makePowerOffSettingsButtonRect() const {
+    return {
+        static_cast<int16_t>(_width - kSettingsBtnSize - kSettingsBtnMargin),
+        kSettingsBtnMargin,
+        kSettingsBtnSize,
+        kSettingsBtnSize
+    };
+}
+
+LCD2Dashboard::Rect LCD2Dashboard::makePowerOffSettingsPanelRect() const {
+    const Rect buttonRect = makePowerOffSettingsButtonRect();
+    const int16_t panelW = kPowerOffSettingsPanelW;
+    const int16_t panelX = static_cast<int16_t>(buttonRect.x + ((buttonRect.w - panelW) / 2));
+    const int16_t panelY = static_cast<int16_t>(buttonRect.y + buttonRect.h + kPowerOffSettingsTopGap);
+    const int16_t panelH = max<int16_t>(24, static_cast<int16_t>(_height - panelY));
+    return {panelX, panelY, panelW, panelH};
+}
+
+LCD2Dashboard::Rect LCD2Dashboard::makePowerOffSettingsSliderRect(const Rect& panelRect) const {
+    const int16_t sliderW = max<int16_t>(16, static_cast<int16_t>(panelRect.w - 4));
+    return {
+        static_cast<int16_t>(panelRect.x + ((panelRect.w - sliderW) / 2)),
+        panelRect.y,
+        sliderW,
+        panelRect.h
+    };
+}
+
+void LCD2Dashboard::updatePowerOffSliderFromTouch(const Rect& sliderRect,
+                                                  int16_t touchY,
+                                                  int16_t& targetValue) {
+    const int16_t slotTop = static_cast<int16_t>(sliderRect.y + kPowerOffSliderTopInset);
+    const int16_t slotBottom = static_cast<int16_t>(sliderRect.y + sliderRect.h - kPowerOffSliderBottomInset);
+    const int16_t clampedY = clampInt16(touchY, slotTop, slotBottom);
+    const int16_t span = max<int16_t>(1, slotBottom - slotTop);
+    const int32_t numerator = static_cast<int32_t>(slotBottom - clampedY) * 100L;
+    targetValue = clampInt16(static_cast<int16_t>((numerator + (span / 2)) / span), 0, 100);
+}
+
+void LCD2Dashboard::drawPowerOffSettingsButton(bool active) {
+    const Rect button = makePowerOffSettingsButtonRect();
+    const uint16_t borderColor = active ? TFT_LIGHTGREY : TFT_DARKGREY;
+
+    _tft.fillRoundRect(button.x, button.y, button.w, button.h, 5, TFT_BLACK);
+    _tft.drawRoundRect(button.x, button.y, button.w, button.h, 5, borderColor);
+    if (active) {
+        _tft.drawRoundRect(static_cast<int16_t>(button.x + 1),
+                           static_cast<int16_t>(button.y + 1),
+                           static_cast<int16_t>(button.w - 2),
+                           static_cast<int16_t>(button.h - 2),
+                           4,
+                           borderColor);
+    }
+
+    const int16_t iconX = static_cast<int16_t>(button.x + ((button.w - kSettingsIconSize) / 2));
+    const int16_t iconY = static_cast<int16_t>(button.y + ((button.h - kSettingsIconSize) / 2));
+    drawInvertedBitmap(_tft,
+                       iconX,
+                       iconY,
+                       kSettingsIconBitmap,
+                       static_cast<uint8_t>(kSettingsIconSize),
+                       static_cast<uint8_t>(kSettingsIconSize),
+                       TFT_LIGHTGREY);
+}
+
+void LCD2Dashboard::drawPowerOffSettingsPanel() {
+    const Rect panel = makePowerOffSettingsPanelRect();
+    const Rect slider = makePowerOffSettingsSliderRect(panel);
+    const int16_t value = getRequestedLedBrightnessPercent();
+
+    const int16_t slotTop = static_cast<int16_t>(slider.y + kPowerOffSliderTopInset);
+    const int16_t slotBottom = static_cast<int16_t>(slider.y + slider.h - kPowerOffSliderBottomInset);
+    const int16_t slotHeight = max<int16_t>(8, slotBottom - slotTop);
+    const int16_t slotWidth = 8;
+    const int16_t slotX = slider.x + ((slider.w - slotWidth) / 2);
+    const int16_t knobWidth = max<int16_t>(14, slider.w - 2);
+    const int16_t knobHeight = 10;
+    const int16_t clampedValue = clampInt16(value, 0, 100);
+    const int16_t knobCenterY = slotBottom - ((clampedValue * slotHeight) / 100);
+    const int16_t knobY = clampInt16(static_cast<int16_t>(knobCenterY - (knobHeight / 2)),
+                                     static_cast<int16_t>(slotTop - 1),
+                                     static_cast<int16_t>(slotBottom - knobHeight + 1));
+    const int16_t fillTop = clampInt16(knobCenterY, slotTop, slotBottom);
+
+    _tft.fillRoundRect(panel.x, panel.y, panel.w, panel.h, 6, TFT_BLACK);
+    _tft.drawRoundRect(panel.x, panel.y, panel.w, panel.h, 6, TFT_DARKGREY);
+
+    _tft.drawRoundRect(static_cast<int16_t>(slotX - 3),
+                       static_cast<int16_t>(slotTop - 2),
+                       static_cast<int16_t>(slotWidth + 6),
+                       static_cast<int16_t>(slotHeight + 4),
+                       5,
+                       TFT_DARKGREY);
+    _tft.fillRoundRect(slotX, slotTop, slotWidth, slotHeight, 4, TFT_DARKGREY);
+    _tft.fillRoundRect(slotX,
+                       fillTop,
+                       slotWidth,
+                       static_cast<int16_t>(slotBottom - fillTop + 1),
+                       4,
+                       kLedAccentColor);
+    _tft.fillRoundRect(static_cast<int16_t>(slider.x + ((slider.w - knobWidth) / 2)),
+                       knobY,
+                       knobWidth,
+                       knobHeight,
+                       4,
+                       kTextColor);
+    _tft.drawFastHLine(static_cast<int16_t>(slider.x + 4),
+                       static_cast<int16_t>(knobY + (knobHeight / 2)),
+                       static_cast<int16_t>(slider.w - 8),
+                       kLedAccentColor);
+}
+
 // ============================================================================
 // POWER_OFF idle screen
 // ============================================================================
@@ -1825,6 +2010,15 @@ void LCD2Dashboard::drawPowerOffIdle() {
     const int16_t btnY = static_cast<int16_t>(_height - kGameBtnH - kGameBtnMarginB);
     drawPowerOffButton(_tft, btnX, btnY, kGameBtnW, kGameBtnH, false, "GAMES", nullptr);
 
+    drawPowerOffSettingsButton(_powerOffSettingsOpen);
+    if (_powerOffSettingsOpen) {
+        drawPowerOffSettingsPanel();
+    }
+
+    if (hasHighHumidityAlert(_alertMask)) {
+        drawHumidityWarningBanner(_tft, _width, _height);
+    }
+
     _tft.setTextDatum(TL_DATUM);
     _tft.setTextColor(kTextColor, kBackgroundColor);
 }
@@ -1860,6 +2054,10 @@ void LCD2Dashboard::drawGameMenu() {
     const int16_t ballY = static_cast<int16_t>(btnY - 4 - (kMenuItemCount - 1) * (kMenuItemH + 2));
     drawPowerOffButton(_tft, btnX, dinoY, kGameBtnW, kMenuItemH, false, "Dino", "Running");
     drawPowerOffButton(_tft, btnX, ballY, kGameBtnW, kMenuItemH, false, "Paddle", "Ball");
+
+    if (hasHighHumidityAlert(_alertMask)) {
+        drawHumidityWarningBanner(_tft, _width, _height);
+    }
 
     _tft.setTextDatum(TL_DATUM);
     _tft.setTextColor(kTextColor, kBackgroundColor);
@@ -1931,6 +2129,46 @@ void LCD2Dashboard::updatePowerOff(uint32_t nowMs) {
 
     // --- IDLE ---
     if (_powerOffMode == PowerOffMode::IDLE) {
+        if (_powerOffSettingsOpen) {
+            const Rect settingsPanelRect = makePowerOffSettingsPanelRect();
+            const Rect sliderRect = makePowerOffSettingsSliderRect(settingsPanelRect);
+            const Rect sliderTrackingRect = {
+                static_cast<int16_t>(sliderRect.x - 10),
+                sliderRect.y,
+                static_cast<int16_t>(sliderRect.w + 20),
+                sliderRect.h
+            };
+
+            if (_gameTouched) {
+                const bool inSliderTrack = pointInRect(_gameTouchX, _gameTouchY, sliderTrackingRect);
+                if (inSliderTrack || _powerOffSettingsTouchActive) {
+                    const int16_t previousValue = _ledBrightnessPercent;
+                    updatePowerOffSliderFromTouch(sliderRect, filterTouchY(_gameTouchY), _ledBrightnessPercent);
+                    _powerOffSettingsTouchActive = inSliderTrack;
+                    if (previousValue != _ledBrightnessPercent) {
+                        if (_idleDrawn && _powerOffSettingsOpen) {
+                            drawPowerOffSettingsButton(true);
+                            drawPowerOffSettingsPanel();
+                            if (hasHighHumidityAlert(_alertMask)) {
+                                drawHumidityWarningBanner(_tft, _width, _height);
+                            }
+                        } else {
+                            _dirty = true;
+                            _powerOffLastFrameMs = 0;
+                        }
+                    }
+                } else {
+                    _powerOffSettingsTouchActive = false;
+                }
+            } else {
+                _powerOffSettingsTouchActive = false;
+                _touchSampleCount = 0;
+            }
+        } else {
+            _powerOffSettingsTouchActive = false;
+            _touchSampleCount = 0;
+        }
+
         if (!_idleDrawn) {
             drawPowerOffIdle();
             _idleDrawn = true;
@@ -1944,7 +2182,33 @@ void LCD2Dashboard::updatePowerOff(uint32_t nowMs) {
         }
 
         if (risingEdge) {
+            const Rect settingsButtonRect = makePowerOffSettingsButtonRect();
+            if (pointInRect(_gameTouchX, _gameTouchY, settingsButtonRect)) {
+                _powerOffSettingsOpen = !_powerOffSettingsOpen;
+                _powerOffSettingsTouchActive = false;
+                _touchSampleCount = 0;
+                _dirty = true;
+                _powerOffLastFrameMs = 0;
+                return;
+            }
+
+            if (_powerOffSettingsOpen) {
+                const Rect settingsPanelRect = makePowerOffSettingsPanelRect();
+                if (!pointInRect(_gameTouchX, _gameTouchY, settingsPanelRect) &&
+                    !_btnGames.contains(_gameTouchX, _gameTouchY)) {
+                    _powerOffSettingsOpen = false;
+                    _powerOffSettingsTouchActive = false;
+                    _touchSampleCount = 0;
+                    _dirty = true;
+                    _powerOffLastFrameMs = 0;
+                    return;
+                }
+            }
+
             if (_btnGames.contains(_gameTouchX, _gameTouchY)) {
+                _powerOffSettingsOpen = false;
+                _powerOffSettingsTouchActive = false;
+                _touchSampleCount = 0;
                 _powerOffMode = PowerOffMode::GAME_MENU;
                 drawGameMenu();
             }
@@ -1954,6 +2218,14 @@ void LCD2Dashboard::updatePowerOff(uint32_t nowMs) {
 
     // --- GAME_MENU ---
     if (_powerOffMode == PowerOffMode::GAME_MENU) {
+        _powerOffSettingsTouchActive = false;
+        _touchSampleCount = 0;
+
+        if (_dirty) {
+            drawGameMenu();
+            _dirty = false;
+        }
+
         if (risingEdge) {
             bool handled = false;
             if (_btnDino.contains(_gameTouchX, _gameTouchY)) {
@@ -2025,6 +2297,9 @@ void LCD2Dashboard::renderDinoGame() {
     _tft.startWrite();
     _gameSprite.pushSprite(0, 0);
     _tft.endWrite();
+    if (hasHighHumidityAlert(_alertMask)) {
+        drawHumidityWarningBanner(_tft, _width, _height);
+    }
 }
 
 void LCD2Dashboard::enterBallGame() {
@@ -2064,5 +2339,8 @@ void LCD2Dashboard::renderBallGame() {
     _tft.startWrite();
     _gameSprite.pushSprite(0, 0);
     _tft.endWrite();
+    if (hasHighHumidityAlert(_alertMask)) {
+        drawHumidityWarningBanner(_tft, _width, _height);
+    }
 }
 
