@@ -17,7 +17,13 @@ Jetson Shield OS is a transparent enclosure project for the Jetson Orin Nano Sup
 - Buttons
 - Switches
 
-## Program
+## Hardware Diagram
+
+<p align="center">
+  <img src="imgs/diagrams/hardware_diagram.jpg" alt="Jetson Shield OS hardware diagram" width="95%" />
+</p>
+
+## Software Diagram
 
 ```mermaid
 flowchart LR
@@ -67,15 +73,22 @@ Additional assembly and design image galleries are collected in [docs/README.md]
 ## Demo Images
 
 <p align="center">
-  <img src="imgs/demo/b494775191d21f8c46c3.jpg" alt="Jetson Shield OS demo 5" width="19%" />
-  <img src="imgs/demo/26ecefb00f33816dd822330.jpg" alt="Jetson Shield OS demo 2" width="19%" />
-  <img src="imgs/demo/054c0a0bea8864d63d99329.jpg" alt="Jetson Shield OS demo 3" width="19%" />
-  <img src="imgs/demo/51312077c0f44eaa17e5328.jpg" alt="Jetson Shield OS demo 4" width="19%" />
-  <img src="imgs/demo/0da851ecb16f3f31667e327.jpg" alt="Jetson Shield OS demo 1" width="19%" />
+	<img src="imgs/demo/A1.jpg" alt="Jetson Shield OS demo 1" width="49%" />
+	<img src="imgs/demo/A2.jpg" alt="Jetson Shield OS demo 2" width="49%" />
+</p>
+
+<p align="center">
+	<img src="imgs/demo/A3.jpg" alt="Jetson Shield OS demo 3" width="49%" />
+	<img src="imgs/demo/A4.jpg" alt="Jetson Shield OS demo 4" width="49%" />
+</p>
+
+<p align="center">
+	<img src="imgs/demo/A5.jpg" alt="Jetson Shield OS demo 5" width="49%" />
+	<img src="imgs/demo/A6.jpg" alt="Jetson Shield OS demo 6" width="49%" />
 </p>
 
 ## Video
 
-[![Watch the Jetson Shield OS short video](https://img.youtube.com/vi/HfWqUJrVQeM/maxresdefault.jpg)](https://youtube.com/shorts/HfWqUJrVQeM)
+[![Watch the Jetson Shield OS short video](https://img.youtube.com/vi/BpIBj3cyqB0/maxresdefault.jpg)](https://youtu.be/BpIBj3cyqB0)
 
-Watch the short demo here: https://youtube.com/shorts/HfWqUJrVQeM
+Watch the short demo here: https://youtu.be/BpIBj3cyqB0
