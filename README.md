@@ -20,7 +20,7 @@ Jetson Shield OS is a transparent enclosure project for the Jetson Orin Nano Sup
 ## Hardware Diagram
 
 <p align="center">
-  <img src="imgs/diagrams/hardware_diagram.jpg" alt="Jetson Shield OS hardware diagram" width="95%" />
+  <img src="imgs/diagrams/hardware_diagram.png" alt="Jetson Shield OS hardware diagram" width="95%" />
 </p>
 
 ## Software Diagram
