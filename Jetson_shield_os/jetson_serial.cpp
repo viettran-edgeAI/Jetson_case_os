@@ -43,6 +43,20 @@ bool JetsonSerial::readSerial1Line(char* outLine, size_t outSize) {
                             outSize);
 }
 
+
+bool JetsonSerial::writeSerial1Line(const char* line) {
+    if (line == nullptr || line[0] == '\0') {
+        return false;
+    }
+
+    Serial1.print(line);
+    const size_t len = strlen(line);
+    if (line[len - 1] != '\n') {
+        Serial1.print('\n');
+    }
+    return true;
+}
+
 bool JetsonSerial::readSerial2Line(char* outLine, size_t outSize) {
     return readLineFromPort(Serial2,
                             _serial2Buffer,
@@ -127,6 +141,39 @@ bool JetsonSerial::parseStatsLine(const char* line, JetsonStatsSnapshot& inOutSt
             parsedAny = true;
         } else if (sscanf(token, "P:%dmW", &intValue) == 1) {
             inOutStats.powerMilliWatt = (intValue < 0) ? 0 : intValue;
+            parsedAny = true;
+        } else if (sscanf(token, "PM:%d", &intValue) == 1) {
+            inOutStats.powerModeId = intValue;
+            parsedAny = true;
+        } else if (sscanf(token, "PMW:%d", &intValue) == 1) {
+            inOutStats.powerModeMaxMilliWatt = (intValue < 0) ? 0 : intValue;
+            parsedAny = true;
+        } else if (sscanf(token, "ND:%d", &intValue) == 1) {
+            inOutStats.netDownloadKbps = (intValue < 0) ? 0 : intValue;
+            parsedAny = true;
+        } else if (sscanf(token, "NU:%d", &intValue) == 1) {
+            inOutStats.netUploadKbps = (intValue < 0) ? 0 : intValue;
+            parsedAny = true;
+        } else if (sscanf(token, "DR:%d", &intValue) == 1) {
+            inOutStats.diskReadKbps = (intValue < 0) ? 0 : intValue;
+            parsedAny = true;
+        } else if (sscanf(token, "DW:%d", &intValue) == 1) {
+            inOutStats.diskWriteKbps = (intValue < 0) ? 0 : intValue;
+            parsedAny = true;
+        } else if (sscanf(token, "SW:%d", &intValue) == 1) {
+            inOutStats.swapUsedMb = (intValue < 0) ? 0 : intValue;
+            parsedAny = true;
+        } else if (sscanf(token, "ST:%d", &intValue) == 1) {
+            inOutStats.swapTotalMb = (intValue < 0) ? 0 : intValue;
+            parsedAny = true;
+        } else if (sscanf(token, "DU:%d", &intValue) == 1) {
+            inOutStats.diskUsedPercent = constrain(intValue, 0, 100);
+            parsedAny = true;
+        } else if (sscanf(token, "DUM:%d", &intValue) == 1) {
+            inOutStats.diskUsedMb = (intValue < 0) ? 0 : intValue;
+            parsedAny = true;
+        } else if (sscanf(token, "DTM:%d", &intValue) == 1) {
+            inOutStats.diskTotalMb = (intValue < 0) ? 0 : intValue;
             parsedAny = true;
         }
 

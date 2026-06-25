@@ -45,7 +45,14 @@ private:
     static constexpr size_t kStatusLabelMaxLen = 23;
     static constexpr uint32_t kPowerOffFrameIntervalMs = 45;
     static constexpr uint32_t kRunningIdleFrameIntervalMs = 50;
-    static constexpr uint32_t kBootLogoDurationMs = 800;
+    static constexpr uint32_t kBootLogoHoldMs = 10000;
+    static constexpr uint32_t kBootLogoFadeOutMs = 2000;
+    static constexpr uint32_t kBootLogoBlankMs = 3000;
+    static constexpr uint32_t kBootLogoFadeInMs = 2000;
+    static constexpr uint32_t kBootLogoDurationMs = kBootLogoHoldMs +
+                                                    kBootLogoFadeOutMs +
+                                                    kBootLogoBlankMs +
+                                                    kBootLogoFadeInMs;
     static constexpr uint32_t kWelcomeBootCompleteHoldMs = 800;
     static constexpr uint32_t kWelcomeNameScrollInMs = 144;
     static constexpr uint32_t kWelcomeNameHoldMs = 1000;
@@ -79,6 +86,7 @@ private:
     uint32_t _lastPowerOffFrameMs;
     uint32_t _lastRunningFrameMs;
     uint32_t _welcomeStartMs;
+    uint32_t _bootLogoStartMs;
     uint32_t _bootLogoUntilMs;
     uint8_t _idlePhase;
     bool _bootViewDirty;
@@ -97,7 +105,9 @@ private:
     void drawCenteredTextLine(int16_t y, const char* text, uint8_t maxChars);
     void drawCenteredSizedTextLine(int16_t y, const char* text, uint8_t textSize);
     void drawTextBlock(int16_t x, int16_t y, const char* text, uint8_t maxCharsPerLine, uint8_t maxLines);
-    void drawNvidiaLogo();
+    void drawNvidiaLogo(uint8_t brightness = 255);
+    uint8_t bootLogoBrightness(uint32_t nowMs) const;
+    uint8_t runningLogoBrightness(uint32_t nowMs) const;
     void drawWelcomeEffect(uint32_t nowMs);
     void drawWelcomeScrollText(const char* text,
                                uint8_t textSize,

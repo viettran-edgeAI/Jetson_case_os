@@ -1,0 +1,18 @@
+[Unit]
+Description=ngrok TCP tunnel for Jetson SSH
+After=network-online.target ssh.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=viettran_orin
+Environment=HOME=/home/viettran_orin
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env ngrok tcp 22
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

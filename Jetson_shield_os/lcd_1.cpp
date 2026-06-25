@@ -23,12 +23,13 @@ LCD1::LCD1()
       _state(SystemState::POWER_OFF),
       _lastPowerOffFrameMs(0),
       _lastRunningFrameMs(0),
-    _welcomeStartMs(0),
-    _bootLogoUntilMs(0),
-    _idlePhase(0),
-    _bootViewDirty(true),
-    _welcomeActive(false),
-    _alertMask(0) {
+      _welcomeStartMs(0),
+      _bootLogoStartMs(0),
+      _bootLogoUntilMs(0),
+      _idlePhase(0),
+      _bootViewDirty(true),
+      _welcomeActive(false),
+      _alertMask(0) {
     _kernelLine[0] = '\0';
     _bootMessage[0] = '\0';
     _statusLabel[0] = '\0';
@@ -76,6 +77,7 @@ void LCD1::init(uint16_t width, uint16_t height, uint8_t i2cAddress, int8_t rese
     _lastPowerOffFrameMs = 0;
     _lastRunningFrameMs = 0;
     _welcomeStartMs = 0;
+    _bootLogoStartMs = 0;
     _bootLogoUntilMs = 0;
     _bootViewDirty = true;
     _welcomeActive = false;
@@ -89,7 +91,6 @@ void LCD1::init(uint16_t width, uint16_t height, uint8_t i2cAddress, int8_t rese
 }
 
 void LCD1::onStateChange(SystemState newState) {
-    const SystemState oldState = _state;
     _state = newState;
 
     _kernelLine[0] = '\0';
@@ -101,20 +102,22 @@ void LCD1::onStateChange(SystemState newState) {
     if (_state == SystemState::POWER_OFF) {
         initializeRain();
         _bootMessage[0] = '\0';
+        _bootLogoStartMs = 0;
         _bootLogoUntilMs = 0;
         safeCopy(_statusLabel, sizeof(_statusLabel), "POWER OFF");
     } else if (_state == SystemState::BOOTING_ON) {
         safeCopy(_bootMessage, sizeof(_bootMessage), "Booting Jetson");
-        _bootLogoUntilMs = (oldState == SystemState::POWER_OFF)
-                               ? (millis() + kBootLogoDurationMs)
-                               : 0;
+        _bootLogoStartMs = 0;
+        _bootLogoUntilMs = 0;
     } else if (_state == SystemState::RUNNING) {
+        _bootLogoStartMs = 0;
         _bootLogoUntilMs = 0;
         if (_bootMessage[0] == '\0') {
             safeCopy(_bootMessage, sizeof(_bootMessage), "Waiting stats");
         }
     } else if (_state == SystemState::SHUTTING_DOWN) {
         safeCopy(_bootMessage, sizeof(_bootMessage), "Shutting down");
+        _bootLogoStartMs = 0;
         _bootLogoUntilMs = 0;
     }
 
@@ -135,6 +138,7 @@ void LCD1::startWelcomeEffect() {
 
     _welcomeActive = true;
     _welcomeStartMs = millis();
+    _bootLogoStartMs = 0;
     _bootLogoUntilMs = 0;
     _lastRunningFrameMs = 0;
 }
@@ -197,14 +201,15 @@ void LCD1::showRunningIdle(uint32_t nowMs) {
         return;
     }
 
-    if (!_bootViewDirty && _lastRunningFrameMs != 0) {
+    if (!_bootViewDirty && _lastRunningFrameMs != 0 &&
+        (nowMs - _lastRunningFrameMs) < kRunningIdleFrameIntervalMs) {
         return;
     }
     _lastRunningFrameMs = nowMs;
     _bootViewDirty = false;
 
     _display->clearDisplay();
-    drawNvidiaLogo();
+    drawNvidiaLogo(runningLogoBrightness(nowMs));
     if (hasHighHumidityAlert(_alertMask)) {
         drawCenteredTextLine(24, "HIGH HUMIDITY", 21);
     }
@@ -224,7 +229,7 @@ void LCD1::update(uint32_t nowMs) {
     if (_state == SystemState::BOOTING_ON && _bootLogoUntilMs != 0U) {
         if (nowMs < _bootLogoUntilMs) {
             _display->clearDisplay();
-            drawNvidiaLogo();
+            drawNvidiaLogo(bootLogoBrightness(nowMs));
             _display->display();
             return;
         }
@@ -490,12 +495,85 @@ void LCD1::drawWelcomeScrollText(const char* text,
     drawCenteredSizedTextLine(y, text, size);
 }
 
-void LCD1::drawNvidiaLogo() {
+uint8_t LCD1::bootLogoBrightness(uint32_t nowMs) const {
+    if (_bootLogoStartMs == 0U || nowMs <= _bootLogoStartMs) {
+        return 255;
+    }
+
+    const uint32_t elapsedMs = nowMs - _bootLogoStartMs;
+    if (elapsedMs < kBootLogoHoldMs) {
+        return 255;
+    }
+
+    uint32_t phaseMs = elapsedMs - kBootLogoHoldMs;
+    if (phaseMs < kBootLogoFadeOutMs) {
+        return static_cast<uint8_t>(255U - ((phaseMs * 255U) / kBootLogoFadeOutMs));
+    }
+
+    phaseMs -= kBootLogoFadeOutMs;
+    if (phaseMs < kBootLogoBlankMs) {
+        return 0;
+    }
+
+    phaseMs -= kBootLogoBlankMs;
+    if (phaseMs < kBootLogoFadeInMs) {
+        return static_cast<uint8_t>((phaseMs * 255U) / kBootLogoFadeInMs);
+    }
+
+    return 255;
+}
+
+uint8_t LCD1::runningLogoBrightness(uint32_t nowMs) const {
+    const uint32_t cycleMs = kBootLogoDurationMs;
+    uint32_t phaseMs = (cycleMs == 0U) ? 0U : (nowMs % cycleMs);
+
+    if (phaseMs < kBootLogoHoldMs) {
+        return 255;
+    }
+
+    phaseMs -= kBootLogoHoldMs;
+    if (phaseMs < kBootLogoFadeOutMs) {
+        return static_cast<uint8_t>(255U - ((phaseMs * 255U) / kBootLogoFadeOutMs));
+    }
+
+    phaseMs -= kBootLogoFadeOutMs;
+    if (phaseMs < kBootLogoBlankMs) {
+        return 0;
+    }
+
+    phaseMs -= kBootLogoBlankMs;
+    if (phaseMs < kBootLogoFadeInMs) {
+        return static_cast<uint8_t>((phaseMs * 255U) / kBootLogoFadeInMs);
+    }
+
+    return 255;
+}
+
+void LCD1::drawNvidiaLogo(uint8_t brightness) {
     if (_display == nullptr) {
         return;
     }
 
-    _display->drawBitmap(0, 0, nvidia_logo, 128, 32, SSD1306_WHITE);
+    if (brightness >= 245U) {
+        _display->drawBitmap(0, 0, nvidia_logo, 128, 32, SSD1306_WHITE);
+        return;
+    }
+
+    const uint8_t threshold = static_cast<uint8_t>(255U - brightness);
+    const uint8_t bytesPerRow = 16;
+    for (uint8_t y = 0; y < 32; ++y) {
+        for (uint8_t x = 0; x < 128; ++x) {
+            const uint8_t bits = pgm_read_byte(nvidia_logo + (static_cast<uint16_t>(y) * bytesPerRow) + (x / 8));
+            if ((bits & static_cast<uint8_t>(0x80U >> (x % 8))) == 0U) {
+                continue;
+            }
+
+            const uint8_t dither = static_cast<uint8_t>(((x * 17U) + (y * 29U)) & 0xFFU);
+            if (dither >= threshold) {
+                _display->drawPixel(x, y, SSD1306_WHITE);
+            }
+        }
+    }
 }
 
 int16_t LCD1::interpolateY(int16_t startY,

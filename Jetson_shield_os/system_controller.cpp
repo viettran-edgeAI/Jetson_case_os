@@ -73,7 +73,11 @@ SystemController::SystemController()
         _taskLcd2(nullptr),
         _lcd2Mutex(nullptr),
             _lcd2StateSyncPending(false),
+            _lcd2MetricsSyncPending(false),
             _lcd2PendingState(jetson_cfg::SystemState::POWER_OFF),
+            _pendingJetsonResponses{},
+            _pendingJetsonResponseHead(0),
+            _pendingJetsonResponseCount(0),
       _state(jetson_cfg::SystemState::POWER_OFF),
       _tasksStarted(false),
       _latestStats(),
@@ -85,6 +89,7 @@ SystemController::SystemController()
     _lastLedBrightnessPercent(map(jetson_cfg::kLedBrightness, 0, 255, 0, 100)),
             _lastSerial2ActivityMs(0),
             _lastSerial1StatsMs(0),
+            _lastSerial1ActivityMs(0),
             _lastBootStartMs(0),
             _lastBootCompleteMs(0),
             _lastShutdownIndicatorMs(0),
@@ -134,7 +139,10 @@ void SystemController::init() {
     _lastSensorValidMs = 0;
     _sensorConsecutiveFailures = 0;
     _lcd2StateSyncPending = false;
+    _lcd2MetricsSyncPending = false;
     _lcd2PendingState = jetson_cfg::SystemState::POWER_OFF;
+    _pendingJetsonResponseHead = 0;
+    _pendingJetsonResponseCount = 0;
     _lastBootStartMs = 0;
     _lastBootCompleteMs = 0;
     _lastShutdownIndicatorMs = 0;
@@ -280,16 +288,27 @@ void SystemController::handleMessage(const ControllerMessage& message) {
         case jetson_cfg::MessageType::JETSON_STATS: {
             _latestStats = message.stats;
             _lastSerial1StatsMs = message.timestampMs;
+            _lastSerial1ActivityMs = message.timestampMs;
 
             if (tryLockLcd2()) {
                 _lcd2.pushMetrics(makeLcd2MetricsFrame());
+                _lcd2MetricsSyncPending = false;
                 unlockLcd2();
+            } else {
+                _lcd2MetricsSyncPending = true;
             }
 
             reconcileStateFromSerialEvidence(message.timestampMs);
             if (_state == jetson_cfg::SystemState::RUNNING && _bootCompletionPending) {
                 _bootCompletionPending = false;
             }
+            break;
+        }
+
+        case jetson_cfg::MessageType::JETSON_RESPONSE: {
+            _lastSerial1ActivityMs = message.timestampMs;
+            reconcileStateFromSerialEvidence(message.timestampMs);
+            deliverJetsonResponseToLcd2(message.line);
             break;
         }
 
@@ -411,7 +430,9 @@ bool SystemController::hasRecentEvidence(uint32_t lastTimestampMs,
 }
 
 void SystemController::reconcileStateFromSerialEvidence(uint32_t nowMs) {
-    const bool serial1Active = hasRecentEvidence(_lastSerial1StatsMs, nowMs, jetson_cfg::kSerial1StaleMs);
+    const bool serial1StatsActive = hasRecentEvidence(_lastSerial1StatsMs, nowMs, jetson_cfg::kSerial1StaleMs);
+    const bool serial1ActivityActive = hasRecentEvidence(_lastSerial1ActivityMs, nowMs, jetson_cfg::kSerial1ActivityWindowMs);
+    const bool serial1Active = serial1StatsActive || serial1ActivityActive;
     const bool serial2Active = hasRecentEvidence(_lastSerial2ActivityMs, nowMs, jetson_cfg::kSerial2EvidenceWindowMs);
     const uint32_t latestShutdownEvidence = max(_lastShutdownIndicatorMs, _lastPowerOffIndicatorMs);
     const bool shutdownActive = hasRecentEvidence(latestShutdownEvidence,
@@ -489,12 +510,24 @@ void SystemController::reconcileStateFromSerialEvidence(uint32_t nowMs) {
 
 void SystemController::resetJetsonStats() {
     _lastSerial1StatsMs = 0;
+    _lastSerial1ActivityMs = 0;
     _latestStats.ramPercent = -1;
     _latestStats.cpuPercent = -1;
     _latestStats.gpuPercent = -1;
     _latestStats.cpuTempC = -1.0f;
     _latestStats.gpuTempC = -1.0f;
     _latestStats.powerMilliWatt = -1;
+    _latestStats.powerModeId = -1;
+    _latestStats.powerModeMaxMilliWatt = -1;
+    _latestStats.netDownloadKbps = -1;
+    _latestStats.netUploadKbps = -1;
+    _latestStats.diskReadKbps = -1;
+    _latestStats.diskWriteKbps = -1;
+    _latestStats.swapUsedMb = -1;
+    _latestStats.swapTotalMb = -1;
+    _latestStats.diskUsedPercent = -1;
+    _latestStats.diskUsedMb = -1;
+    _latestStats.diskTotalMb = -1;
 }
 
 bool SystemController::hasValidJetsonMetric() const {
@@ -503,7 +536,18 @@ bool SystemController::hasValidJetsonMetric() const {
            (_latestStats.gpuPercent >= 0) ||
            (_latestStats.cpuTempC >= 0.0f) ||
            (_latestStats.gpuTempC >= 0.0f) ||
-           (_latestStats.powerMilliWatt >= 0);
+           (_latestStats.powerMilliWatt >= 0) ||
+           (_latestStats.powerModeId >= 0) ||
+           (_latestStats.powerModeMaxMilliWatt >= 0) ||
+           (_latestStats.netDownloadKbps >= 0) ||
+           (_latestStats.netUploadKbps >= 0) ||
+           (_latestStats.diskReadKbps >= 0) ||
+           (_latestStats.diskWriteKbps >= 0) ||
+           (_latestStats.swapUsedMb >= 0) ||
+           (_latestStats.swapTotalMb >= 0) ||
+           (_latestStats.diskUsedPercent >= 0) ||
+           (_latestStats.diskUsedMb >= 0) ||
+           (_latestStats.diskTotalMb >= 0);
 }
 
 LCD2Dashboard::MetricsFrame SystemController::makeLcd2MetricsFrame() const {
@@ -514,6 +558,17 @@ LCD2Dashboard::MetricsFrame SystemController::makeLcd2MetricsFrame() const {
     frame.cpuTemp = _latestStats.cpuTempC;
     frame.gpuTemp = _latestStats.gpuTempC;
     frame.powerMw = static_cast<int32_t>(_latestStats.powerMilliWatt);
+    frame.powerModeId = static_cast<int8_t>(_latestStats.powerModeId);
+    frame.powerLimitMw = static_cast<int32_t>(_latestStats.powerModeMaxMilliWatt);
+    frame.netDownloadKbps = static_cast<int32_t>(_latestStats.netDownloadKbps);
+    frame.netUploadKbps = static_cast<int32_t>(_latestStats.netUploadKbps);
+    frame.diskReadKbps = static_cast<int32_t>(_latestStats.diskReadKbps);
+    frame.diskWriteKbps = static_cast<int32_t>(_latestStats.diskWriteKbps);
+    frame.swapUsedMb = static_cast<int32_t>(_latestStats.swapUsedMb);
+    frame.swapTotalMb = static_cast<int32_t>(_latestStats.swapTotalMb);
+    frame.diskUsage = static_cast<int16_t>(_latestStats.diskUsedPercent);
+    frame.diskUsedMb = static_cast<int32_t>(_latestStats.diskUsedMb);
+    frame.diskTotalMb = static_cast<int32_t>(_latestStats.diskTotalMb);
     return frame;
 }
 
@@ -542,16 +597,19 @@ int16_t SystemController::readLcd2RequestedLedBrightnessPercent() {
 
 void SystemController::syncLcd2Metrics() {
     if (!tryLockLcd2()) {
+        _lcd2MetricsSyncPending = true;
         return;
     }
 
     if (!hasValidJetsonMetric()) {
         _lcd2.clearMetrics();
+        _lcd2MetricsSyncPending = false;
         unlockLcd2();
         return;
     }
 
     _lcd2.pushMetrics(makeLcd2MetricsFrame());
+    _lcd2MetricsSyncPending = false;
     unlockLcd2();
 }
 
@@ -569,6 +627,93 @@ void SystemController::syncLcd2Environment() {
                          static_cast<int16_t>(_fan.getSpeed()),
                          ledBrightnessPercent);
     unlockLcd2();
+}
+
+
+void SystemController::handleLcd2JetsonCommands() {
+    if (_state != jetson_cfg::SystemState::RUNNING) {
+        return;
+    }
+
+    char command[128] = {0};
+    if (!tryLockLcd2()) {
+        return;
+    }
+    const bool hasCommand = _lcd2.popPendingJetsonCommand(command, sizeof(command));
+    unlockLcd2();
+
+    if (hasCommand) {
+        Serial.print("[CTRL][JETSON_CMD] TX Serial1: ");
+        Serial.println(command);
+        const bool wrote = _jetson.writeSerial1Line(command);
+        Serial.print("[CTRL][JETSON_CMD] write result: ");
+        Serial.println(wrote ? "OK" : "FAIL");
+    }
+}
+
+void SystemController::requestRunningStartupInfo() {
+    static const char* const kStartupRequests[] = {
+        "REQ:POWER_MODE",
+        "REQ:HEADLESS_STATUS"
+    };
+
+    for (const char* request : kStartupRequests) {
+        Serial.print("[CTRL][STARTUP_INFO] TX Serial1: ");
+        Serial.println(request);
+        const bool wrote = _jetson.writeSerial1Line(request);
+        Serial.print("[CTRL][STARTUP_INFO] write result: ");
+        Serial.println(wrote ? "OK" : "FAIL");
+    }
+}
+
+void SystemController::queuePendingJetsonResponse(const char* line) {
+    if (line == nullptr || line[0] == '\0') {
+        return;
+    }
+
+    if (_pendingJetsonResponseCount >= kPendingJetsonResponseCapacity) {
+        _pendingJetsonResponseHead = static_cast<uint8_t>((_pendingJetsonResponseHead + 1) % kPendingJetsonResponseCapacity);
+        _pendingJetsonResponseCount = static_cast<uint8_t>(kPendingJetsonResponseCapacity - 1);
+    }
+
+    const uint8_t slot = static_cast<uint8_t>((_pendingJetsonResponseHead + _pendingJetsonResponseCount) % kPendingJetsonResponseCapacity);
+    safeCopyLine(_pendingJetsonResponses[slot], sizeof(_pendingJetsonResponses[slot]), line);
+    ++_pendingJetsonResponseCount;
+}
+
+void SystemController::deliverJetsonResponseToLcd2(const char* line) {
+    if (line == nullptr || line[0] == '\0') {
+        return;
+    }
+
+    Serial.print("[CTRL][JETSON_RESPONSE] deliver: ");
+    Serial.println(line);
+    if (!tryLockLcd2()) {
+        Serial.println("[CTRL][JETSON_RESPONSE] LCD2 busy, queue pending");
+        queuePendingJetsonResponse(line);
+        return;
+    }
+
+    _lcd2.processJetsonResponseLine(line);
+    unlockLcd2();
+}
+
+void SystemController::syncPendingJetsonResponses() {
+    while (_pendingJetsonResponseCount > 0) {
+        if (!tryLockLcd2()) {
+            return;
+        }
+
+        const uint8_t slot = _pendingJetsonResponseHead;
+        char line[jetson_cfg::kSerial1LineMaxLen + 1] = {0};
+        safeCopyLine(line, sizeof(line), _pendingJetsonResponses[slot]);
+        _pendingJetsonResponses[slot][0] = '\0';
+        _pendingJetsonResponseHead = static_cast<uint8_t>((_pendingJetsonResponseHead + 1) % kPendingJetsonResponseCapacity);
+        --_pendingJetsonResponseCount;
+
+        _lcd2.processJetsonResponseLine(line);
+        unlockLcd2();
+    }
 }
 
 uint8_t SystemController::buildAlertMask() const {
@@ -634,6 +779,10 @@ void SystemController::setState(jetson_cfg::SystemState newState, const char* co
     if (lcd2StateApplied && newState == jetson_cfg::SystemState::RUNNING) {
         syncLcd2Environment();
         syncLcd2Metrics();
+    }
+
+    if (stateChanged && newState == jetson_cfg::SystemState::RUNNING) {
+        requestRunningStartupInfo();
     }
 
     if (!stateChanged) {
@@ -814,8 +963,13 @@ void SystemController::controllerTaskLoop() {
         handleMetricStaleness(nowMs);
         handleSensorFreshness(nowMs);
         syncPendingLcd2State();
+        if (_lcd2MetricsSyncPending) {
+            syncLcd2Metrics();
+        }
+        syncPendingJetsonResponses();
         updateAlerts();
         applyPolicies();
+        handleLcd2JetsonCommands();
         updateDisplays(nowMs);
     }
 }
@@ -833,6 +987,14 @@ void SystemController::serial1TaskLoop() {
 
         JetsonStatsSnapshot parsedStats = _latestStats;
         if (!JetsonSerial::parseStatsLine(line, parsedStats)) {
+            Serial.print("[SERIAL1][JETSON_RX_NON_STATS] ");
+            Serial.println(line);
+            ControllerMessage responseMessage = {};
+            responseMessage.source = jetson_cfg::MessageSource::SERIAL1;
+            responseMessage.type = jetson_cfg::MessageType::JETSON_RESPONSE;
+            responseMessage.timestampMs = millis();
+            safeCopyLine(responseMessage.line, sizeof(responseMessage.line), line);
+            postMessage(responseMessage, false);
             continue;
         }
 

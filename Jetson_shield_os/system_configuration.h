@@ -28,6 +28,7 @@ enum class MessageSource : uint8_t {
 
 enum class MessageType : uint8_t {
 	JETSON_STATS = 0,
+	JETSON_RESPONSE,
 	KERNEL_LOG,
 	SENSOR_READING,
 	STATE_EVENT,
@@ -43,11 +44,11 @@ static constexpr uint32_t kSerial1Baud = 115200;
 static constexpr uint32_t kSerial2Baud = 115200;
 
 static constexpr int kSerial1RxPin = 25;
-static constexpr int kSerial1TxPin = 32;
+static constexpr int kSerial1TxPin = 17;
 static constexpr int kSerial2RxPin = 16;
-static constexpr int kSerial2TxPin = 17;
+static constexpr int kSerial2TxPin = 32; // Reserved; Serial2 is receive-only in the current architecture.
 
-static constexpr size_t kSerial1LineMaxLen = 128;
+static constexpr size_t kSerial1LineMaxLen = 192;
 static constexpr size_t kSerial2LineMaxLen = 192;
 static constexpr uint32_t kSerialPollDelayMs = 10;
 static constexpr uint32_t kSerialIdleDelayMs = 30;
@@ -58,6 +59,7 @@ static constexpr uint32_t kSerial2ShutdownQuietMs = 1500;
 static constexpr uint32_t kSerial2LogThrottleMs = 50;
 static constexpr uint32_t kSerial2TransitionLogThrottleMs = 8;
 static constexpr uint32_t kSerial1StaleMs = 2500;
+static constexpr uint32_t kSerial1ActivityWindowMs = 10000;
 static constexpr size_t kSerialNoiseMinLineLength = 6;
 static constexpr uint8_t kSerialNoiseMinAlphaChars = 2;
 
@@ -106,8 +108,8 @@ static constexpr uint8_t kDhtType = DHT11;
 static constexpr uint32_t kSensorSamplePeriodMs = 2000;
 static constexpr uint32_t kSensorFreshnessTimeoutMs = 15000;
 static constexpr uint8_t kSensorMaxConsecutiveFailures = 5;
-static constexpr float kHumidityHighPercent = 88.0f;	// Threshold to trigger high humidity alert
-static constexpr float kHumidityRecoverPercent = 85.0f; 	// Threshold to clear high humidity alert
+static constexpr float kHumidityHighPercent = 98.0f;	// Threshold to trigger high humidity alert
+static constexpr float kHumidityRecoverPercent = 95.0f; 	// Threshold to clear high humidity alert
 
 // ---------------------------- LCD_1 (OLED) ----------------------------
 static constexpr uint16_t kLcd1Width = 128;
@@ -123,9 +125,10 @@ static constexpr uint8_t kRainDropCount = 10;
 static constexpr uint16_t kLcd2Width = 320;
 static constexpr uint16_t kLcd2Height = 240;
 static constexpr uint8_t kLcd2Rotation = 2; // vertical 
-static constexpr uint16_t kLcd2GraphPoints = 60;
+static constexpr uint16_t kLcd2GraphPoints = 32;
 static constexpr uint32_t kLcd2RefreshPeriodMs = 1000;
-static constexpr uint32_t kLcd2MutexTimeoutMs = 4;
+static constexpr uint32_t kLcd2MutexTimeoutMs = 20;
+static constexpr uint16_t kLcd2TouchPressureThreshold = 35;
 static constexpr bool kLcd2ForceTouchCalibration = false;
 static constexpr const char* kLcd2TouchCalibrationFile = "/jsos_touch_cal.bin";
 

@@ -54,7 +54,13 @@ private:
 	TaskHandle_t _taskLcd2;
 	SemaphoreHandle_t _lcd2Mutex;
 	bool _lcd2StateSyncPending;
+	bool _lcd2MetricsSyncPending;
 	jetson_cfg::SystemState _lcd2PendingState;
+
+	static constexpr uint8_t kPendingJetsonResponseCapacity = 16;
+	char _pendingJetsonResponses[kPendingJetsonResponseCapacity][jetson_cfg::kSerial1LineMaxLen + 1];
+	uint8_t _pendingJetsonResponseHead;
+	uint8_t _pendingJetsonResponseCount;
 
 	volatile jetson_cfg::SystemState _state;
 	bool _tasksStarted;
@@ -68,6 +74,7 @@ private:
 	int16_t _lastLedBrightnessPercent;
 	volatile uint32_t _lastSerial2ActivityMs;
 	uint32_t _lastSerial1StatsMs;
+	uint32_t _lastSerial1ActivityMs;
 	uint32_t _lastBootStartMs;
 	uint32_t _lastBootCompleteMs;
 	uint32_t _lastShutdownIndicatorMs;
@@ -97,6 +104,11 @@ private:
 	LCD2Dashboard::MetricsFrame makeLcd2MetricsFrame() const;
 	void syncLcd2Metrics();
 	void syncLcd2Environment();
+	void handleLcd2JetsonCommands();
+	void requestRunningStartupInfo();
+	void deliverJetsonResponseToLcd2(const char* line);
+	void queuePendingJetsonResponse(const char* line);
+	void syncPendingJetsonResponses();
 
 	void setState(jetson_cfg::SystemState newState, const char* contextText = nullptr);
 	void updateAlerts();

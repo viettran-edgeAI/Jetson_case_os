@@ -2,3 +2,7 @@
 .venv/
 __pycache__/
 *.pyc
+button_demo.ino
+AGENTS.md
+docs/LCD2_FLICKER_REFACTOR_PLAN.md
+docs/TFT_eSPI_RENDERING_GUIDE.md

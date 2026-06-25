@@ -1,0 +1,35 @@
+[Unit]
+Description=Jetson Shield stats, IO, and network UART bridge
+After=multi-user.target NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+EnvironmentFile=-/etc/default/jetson_shield
+ExecStart=/usr/local/bin/jetson_shield
+Restart=on-failure
+RestartSec=2
+User=root
+StandardOutput=journal
+StandardError=journal
+
+# Optional environment variables in /etc/default/jetson_shield:
+# SYSTEM_MONITOR_UART=/dev/ttyTHS1
+# SYSTEM_MONITOR_DISK=nvme0n1
+# SYSTEM_MONITOR_TEGRASTATS_CMD="tegrastats --interval 1000 2>&1"
+# SYSTEM_MONITOR_SSH_SERVICE=ssh.service
+# SYSTEM_MONITOR_NGROK_SERVICE=ngrok.service
+# SYSTEM_MONITOR_SELF_SERVICE=jetson_shield.service
+# SYSTEM_MONITOR_NGROK_API=http://127.0.0.1:4040/api/tunnels
+#
+# UART request protocol from ESP32:
+# REQ:IP
+# REQ:WIFI_SCAN
+# WIFI_CONNECT SSID:<percent-escaped-ssid> PSK:<percent-escaped-password>
+# REQ:ABOUT
+# REQ:SSH_STATUS / SSH_START / SSH_STOP
+# REQ:NGROK_STATUS / NGROK_START / NGROK_STOP
+# REQ:HEADLESS_STATUS / HEADLESS_ENABLE_BOOT / HEADLESS_DISABLE_BOOT / HEADLESS_APPLY_NOW
+# MONITOR_RESTART / JETSON_REBOOT / JETSON_SHUTDOWN
+
+[Install]
+WantedBy=multi-user.target

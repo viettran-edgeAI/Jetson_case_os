@@ -14,6 +14,17 @@ struct JetsonStatsSnapshot {
     float cpuTempC = -1.0f;
     float gpuTempC = -1.0f;
     int powerMilliWatt = -1;
+    int powerModeId = -1;
+    int powerModeMaxMilliWatt = -1;
+    int netDownloadKbps = -1;
+    int netUploadKbps = -1;
+    int diskReadKbps = -1;
+    int diskWriteKbps = -1;
+    int swapUsedMb = -1;
+    int swapTotalMb = -1;
+    int diskUsedPercent = -1;
+    int diskUsedMb = -1;
+    int diskTotalMb = -1;
 };
 
 enum class KernelTransitionEvent : uint8_t {
@@ -46,6 +57,7 @@ public:
 
     bool readSerial1Line(char* outLine, size_t outSize);
     bool readSerial2Line(char* outLine, size_t outSize);
+    bool writeSerial1Line(const char* line);
 
     uint32_t getSerial1OverflowCount() const { return _serial1OverflowCount; }
     uint32_t getSerial2OverflowCount() const { return _serial2OverflowCount; }
